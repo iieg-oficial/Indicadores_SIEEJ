@@ -1,0 +1,35 @@
+[project]
+name = "indicadores-sieej"
+version = "0.1"
+description = "Banco de indicadores del IIEG expuesto como servidor MCP y API REST."
+requires-python = ">=3.12"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+markers = [
+    "integration: pruebas que requieren una base PostgreSQL viva",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "F401", # imports sin usar
+    "F811", # redefinición sin usar
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["indicadores_sieej"]
