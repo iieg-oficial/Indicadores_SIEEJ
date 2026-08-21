@@ -24,7 +24,7 @@ Conventional Commits, **una sola línea**, sin cuerpo:
 <tipo>(<scope>): <descripción>
 ```
 
-Tipos: `feat`, `fix`, `update`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`.
+Tipos: `feat`, `fix`, `update`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, `style`, `build`.
 Scope opcional: el área afectada (`catalogo`, `motor`, `mcp`, `api`, `auth`, `repo`…).
 
 **Commits atómicos:** un cambio lógico por commit. Si un commit necesita un párrafo para explicarse,

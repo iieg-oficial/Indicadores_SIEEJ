@@ -11,7 +11,7 @@ if echo "$commit_msg" | grep -qE "^Merge "; then
   exit 0
 fi
 
-TYPES="feat|fix|update|refactor|chore|docs|test|ci|perf"
+TYPES="feat|fix|update|refactor|chore|docs|test|ci|perf|style|build"
 PATTERN="^($TYPES)(\([a-z0-9_-]+\))?: .+"
 
 if ! echo "$commit_msg" | grep -qE "$PATTERN"; then

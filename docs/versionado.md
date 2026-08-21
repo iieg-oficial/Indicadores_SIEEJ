@@ -29,7 +29,8 @@ El comportamiento **por defecto** antes de `1.0.0` ya produce esta secuencia:
 - un commit `feat:` sube la **minor** → `0.1` → `0.2`, el uso normal;
 - un commit `fix:` sube el **patch** → `0.2.1`, el quick fix.
 
-Los demás tipos (`chore`, `docs`, `test`, `ci`, `refactor`, `update`, `perf`) no mueven la versión.
+Los demás tipos (`chore`, `docs`, `test`, `ci`, `refactor`, `update`, `perf`, `style`, `build`) no mueven
+la versión.
 
 > **No activar `bump-patch-for-minor-pre-major`.** Esa opción manda los `feat` al patch y rompería la
 > convención, dejando `0.1.1`, `0.1.2` donde deberían ir `0.2`, `0.3`.

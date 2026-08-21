@@ -15,7 +15,7 @@ jobs:
           fetch-depth: 0
       - name: Validar los commits del PR
         run: |
-          TYPES="feat|fix|update|refactor|chore|docs|test|ci|perf"
+          TYPES="feat|fix|update|refactor|chore|docs|test|ci|perf|style|build"
           PATTERN="^($TYPES)(\([a-z0-9_-]+\))?: .+"
           fallidos=0
           while read -r sha; do
