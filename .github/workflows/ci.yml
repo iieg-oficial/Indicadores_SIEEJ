@@ -1,9 +1,7 @@
 name: CI
 
+# Solo en PR: disparar también en push duplica cada job y gasta el doble de minutos.
 on:
-  push:
-    branches-ignore:
-      - main
   pull_request:
     branches:
       - main
