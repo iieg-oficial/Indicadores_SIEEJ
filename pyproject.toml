@@ -1,8 +1,11 @@
 [project]
 name = "indicadores-sieej"
-version = "0.1"
+version = "0.1.0"
 description = "Banco de indicadores del IIEG expuesto como servidor MCP y API REST."
 requires-python = ">=3.12"
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff", "pre-commit"]
 
 [build-system]
 requires = ["setuptools>=68"]
