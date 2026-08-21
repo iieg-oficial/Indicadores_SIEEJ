@@ -30,7 +30,8 @@ Scope opcional: el área afectada (`catalogo`, `motor`, `mcp`, `api`, `auth`, `r
 **Commits atómicos:** un cambio lógico por commit. Si un commit necesita un párrafo para explicarse,
 la señal es que debe partirse, no que le falte cuerpo.
 
-Solo `feat` y `fix` mueven la versión — ver [docs/versionado.md](docs/versionado.md).
+Solo `feat` y `fix` aparecen en el CHANGELOG. La versión la decide una persona al publicar,
+no el historial de commits — ver [docs/versionado.md](docs/versionado.md).
 
 El hook local lo valida. Instálalo con:
 
@@ -42,7 +43,8 @@ git config core.hooksPath .githooks
 ## Pull requests
 
 - Hacia `main`, con `Closes #N`.
-- Al menos una aprobación y CI verde.
+- CI verde. La aprobación se exigirá cuando el repositorio tenga más de un ingeniero activo;
+  hoy la protección de `main` solo obliga a los checks.
 - Sin `.env`, sin DSN, sin tokens, sin credenciales.
 - Un PR que toca `catalogo/` **debería** revisarlo alguien del área temática del indicador, no solo
   desarrollo: el YAML contiene definiciones institucionales, no solo SQL.

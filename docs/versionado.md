@@ -1,14 +1,20 @@
 # Versionado
 
-**`vX.Y`**, donde `X` es el major y `Y` el minor release. El tercer componente existe pero **se omite
-cuando es cero**: se usa solo para un _quick fix_ sobre una minor ya publicada.
+**`vX.Y`**, donde `X` es el major y `Y` el minor release.
+
+**El patch nunca se escribe en cero.** Existe un tercer componente solo cuando hay un _bug fix_ o un
+_quick release_ sobre una versión ya publicada.
 
 ```
 v0.1      primera versión de desarrollo
 v0.2      siguiente minor
-v0.2.1    corrección rápida sobre la 0.2
+v0.2.1    quick fix sobre la 0.2
+v0.2.2    otro quick fix
 v0.3      siguiente minor
 ```
+
+No existe `v0.2.0`: esa versión se llama `v0.2`. La regla vale en todos lados — el tag, el release,
+`pyproject.toml` y `__version__`.
 
 ## Los animales
 
@@ -22,27 +28,34 @@ v0.3      siguiente minor
 `0.1`, `0.2`, `0.3`… todas son Ajolote. El animal del siguiente major se elige **antes** de cerrar el
 anterior, no el día del release.
 
-## Cómo lo produce release-please
+## Por qué no usamos release-please
 
-El comportamiento **por defecto** antes de `1.0.0` ya produce esta secuencia:
+Es la herramienta del ETL, y aquí se evaluó y se descartó: **parsea SemVer estricto y siempre escribe
+tres componentes**, así que no puede emitir `v0.2` — emitiría `v0.2.0`. Tampoco tiene un tipo de
+commit "neutro": cualquier commit convencional le mueve al menos el patch, de modo que un ciclo de
+solo documentación acababa proponiendo `0.1.1`.
 
-- un commit `feat:` sube la **minor** → `0.1` → `0.2`, el uso normal;
-- un commit `fix:` sube el **patch** → `0.2.1`, el quick fix.
+En su lugar hay dos workflows propios, y **la versión la decide una persona**, no el historial de
+commits.
 
-Los demás tipos (`chore`, `docs`, `test`, `ci`, `refactor`, `update`, `perf`, `style`, `build`) no mueven
-la versión.
+## Cómo se publica
 
-> **No activar `bump-patch-for-minor-pre-major`.** Esa opción manda los `feat` al patch y rompería la
-> convención, dejando `0.1.1`, `0.1.2` donde deberían ir `0.2`, `0.3`.
+1. **`Preparar release`** (`workflow_dispatch`, se dispara a mano desde Actions). Recibe la versión y
+   el animal. Valida el formato —rechaza cualquier cosa que termine en `.0`— actualiza
+   `pyproject.toml`, `__version__` y el `CHANGELOG.md`, y abre un PR de release.
+2. Se revisa ese PR como cualquier otro y se mergea.
+3. **`Publicar release`** detecta el commit `chore(release): vX.Y <Animal>` en `main` y crea el tag
+   `vX.Y` y el release de GitHub, titulado `v0.2 Ajolote`.
 
-`bump-minor-pre-major` sí está activo: evita que un breaking change salte a `1.0` por accidente
-durante el desarrollo.
+Qué versión toca es un juicio, no un cálculo: `X.Y` cuando el ciclo trae funcionalidad nueva,
+`X.Y.Z` cuando solo se corrige algo de una versión ya publicada.
 
-## La diferencia entre versión interna y versión comunicada
+## Qué aparece en el CHANGELOG
 
-release-please parsea SemVer estricto y **siempre** escribe tres componentes, así que el manifest y
-`pyproject.toml` llevan `0.1.0`. La versión que se comunica —título del release, encabezado del
-CHANGELOG— es `v0.1 Ajolote`.
+Solo `feat` (Novedades) y `fix` (Correcciones). Los demás tipos —`chore`, `docs`, `test`, `ci`,
+`refactor`, `update`, `perf`, `style`, `build`— quedan en el diff del release, no en la lista.
+
+Un ciclo sin `feat` ni `fix` lo dice explícitamente en vez de dejar la entrada vacía.
 
 ---
 

@@ -1,0 +1,39 @@
+name: Publicar release
+
+# Crea el tag y el release cuando se mergea un PR de "Preparar release".
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publicar:
+    if: "startsWith(github.event.head_commit.message, 'chore(release): v')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Leer la versión y el animal del commit
+        id: datos
+        run: |
+          titulo=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          version=$(echo "$titulo" | sed -E 's/^chore\(release\): v([0-9.]+) .*/\1/')
+          animal=$(echo "$titulo" | sed -E 's/^chore\(release\): v[0-9.]+ (.*)$/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "animal=$animal"   >> "$GITHUB_OUTPUT"
+
+      - name: Crear el tag y el release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="v${{ steps.datos.outputs.version }}"
+          git tag "$v"
+          git push origin "$v"
+          # La entrada más reciente del CHANGELOG es la de esta versión.
+          notas=$(awk '/^## /{n++} n==1' CHANGELOG.md)
+          gh release create "$v" --title "$v ${{ steps.datos.outputs.animal }}" --notes "$notas"

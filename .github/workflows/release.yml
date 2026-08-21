@@ -1,0 +1,97 @@
+name: Preparar release
+
+# Se dispara a mano cuando el ciclo está listo para publicarse.
+# Abre un PR con la versión y el CHANGELOG actualizados; el tag y el release
+# los crea "publicar.yml" cuando ese PR se mergea.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión sin la v. Ej: 0.2 (normal) o 0.2.1 (quick fix). El patch nunca es 0."
+        required: true
+      animal:
+        description: "Animal endémico que nombra la serie major"
+        required: true
+        default: "Ajolote"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  preparar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar el formato de la versión
+        run: |
+          # vX.Y, o vX.Y.Z con Z >= 1. Un patch en cero se escribe como vX.Y.
+          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+(\.[1-9][0-9]*)?$'; then
+            echo "::error::'${{ inputs.version }}' no es válida. Usa X.Y (ej. 0.2) o X.Y.Z con Z>=1 (ej. 0.2.1)."
+            echo "::error::Un patch en cero no se escribe: la versión es X.Y, no X.Y.0."
+            exit 1
+          fi
+          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            echo "::error::El tag v${{ inputs.version }} ya existe."
+            exit 1
+          fi
+
+      - name: Actualizar la versión en el paquete
+        run: |
+          sed -i 's/^version = ".*"$/version = "${{ inputs.version }}"/' pyproject.toml
+          sed -i 's/^__version__ = ".*"$/__version__ = "${{ inputs.version }}"/' src/indicadores_sieej/__init__.py
+
+      - name: Generar la entrada del CHANGELOG
+        run: |
+          anterior=$(git tag --sort=-v:refname | head -1)
+          rango="${anterior:+$anterior..}HEAD"
+          hubo_algo=0
+          {
+            echo "## v${{ inputs.version }} ${{ inputs.animal }} ($(date +%Y-%m-%d))"
+            echo
+            for tipo in feat fix; do
+              case $tipo in
+                feat) titulo="Novedades" ;;
+                fix)  titulo="Correcciones" ;;
+              esac
+              cuerpo=$(git log "$rango" --no-merges --pretty=format:'%s|%h' \
+                       | grep -E "^$tipo(\([a-z0-9_-]+\))?: " || true)
+              [ -z "$cuerpo" ] && continue
+              hubo_algo=1
+              echo "### $titulo"
+              echo
+              echo "$cuerpo" | while IFS='|' read -r msg sha; do
+                # "feat(motor): X" -> "**motor:** X";  "feat: X" -> "X"
+                limpio=$(echo "$msg" | sed -E "s/^$tipo\(([a-z0-9_-]+)\): /**\1:** /; s/^$tipo: //")
+                echo "- $limpio ([$sha](https://github.com/${{ github.repository }}/commit/$sha))"
+              done
+              echo
+            done
+            if [ "$hubo_algo" = "0" ]; then
+              echo "Sin cambios funcionales: solo documentación, tooling o pruebas."
+              echo
+            fi
+          } > /tmp/entrada.md
+          # Los tipos que no son feat ni fix no se listan: entran en el diff del release.
+          touch CHANGELOG.md
+          cat /tmp/entrada.md CHANGELOG.md > /tmp/nuevo.md && mv /tmp/nuevo.md CHANGELOG.md
+          cat /tmp/entrada.md
+
+      - name: Abrir el PR de release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rama="release-v${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$rama"
+          git add pyproject.toml src/indicadores_sieej/__init__.py CHANGELOG.md
+          git commit -m "chore(release): v${{ inputs.version }} ${{ inputs.animal }}"
+          git push origin "$rama"
+          gh pr create --base main --head "$rama" \
+            --title "chore(release): v${{ inputs.version }} ${{ inputs.animal }}" \
+            --body "$(printf 'Publica **v%s %s**.\n\nAl mergear este PR se crean el tag `v%s` y el release.\n\n---\n\n%s' \
+                      "${{ inputs.version }}" "${{ inputs.animal }}" "${{ inputs.version }}" "$(cat /tmp/entrada.md)")"
