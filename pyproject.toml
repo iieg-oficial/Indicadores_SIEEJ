@@ -1,6 +1,6 @@
 [project]
 name = "indicadores-sieej"
-version = "0.1.0"
+version = "0.1"
 description = "Banco de indicadores del IIEG expuesto como servidor MCP y API REST."
 requires-python = ">=3.12"
 
