@@ -8,15 +8,15 @@ consulta.
 
 ## Las ocho validaciones
 
-| Validación | Mensaje de error |
-|---|---|
-| El YAML valida contra el modelo, sin campos extra | `campo desconocido '<x>'` |
-| `id` único en todo el catálogo | `id duplicado '<id>'` |
-| Nombre de archivo (sin extensión) == `id` | `el id no coincide con el nombre del archivo` |
-| Nombre de carpeta == `tema` | `el tema no coincide con la carpeta` |
-| `pipeline` declarado en la configuración de conexiones | `el pipeline '<p>' no está declarado` |
-| `sql` empieza con `SELECT` o `WITH` | `el sql debe empezar con SELECT o WITH` |
-| `sql` proyecta las 5 columnas con `AS` | `el sql no proyecta las columnas [...]` |
+| Validación                                                       | Mensaje de error                                                                                      |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| El YAML valida contra el modelo, sin campos extra                | `campo desconocido '<x>'`                                                                             |
+| `id` único en todo el catálogo                                   | `id duplicado '<id>'`                                                                                 |
+| Nombre de archivo (sin extensión) == `id`                        | `el id no coincide con el nombre del archivo`                                                         |
+| Nombre de carpeta == `tema`                                      | `el tema no coincide con la carpeta`                                                                  |
+| `pipeline` declarado en la configuración de conexiones           | `el pipeline '<p>' no está declarado`                                                                 |
+| `sql` empieza con `SELECT` o `WITH`                              | `el sql debe empezar con SELECT o WITH`                                                               |
+| `sql` proyecta las 5 columnas con `AS`                           | `el sql no proyecta las columnas [...]`                                                               |
 | `{parametros}` == `{binds del sql}`, exacto en ambas direcciones | `desajuste entre parametros y binds del sql (declarados sin usar: [...], usados sin declarar: [...])` |
 
 ## En tiempo de consulta

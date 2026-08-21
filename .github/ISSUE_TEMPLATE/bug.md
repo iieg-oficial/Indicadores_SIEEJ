@@ -1,8 +1,8 @@
 ---
 name: Bug
 about: Algo no funciona como se espera
-title: 'fix: '
-labels: 'type: bug'
+title: "fix: "
+labels: "type: bug"
 ---
 
 ## Qué pasa

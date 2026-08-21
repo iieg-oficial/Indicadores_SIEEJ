@@ -1,18 +1,18 @@
 # Periodos y geografía
 
-Es lo que el agente pregunta siempre: *"dame X en el municipio Y para el periodo Z"*. El banco lo
+Es lo que el agente pregunta siempre: _"dame X en el municipio Y para el periodo Z"_. El banco lo
 resuelve **dentro del SQL de cada YAML**, no en la capa que lo envuelve.
 
 ## Construcción de `periodo`
 
 Siempre `text`, y el formato depende de la forma de la fuente:
 
-| Periodicidad | Formato | Construcción típica |
-|---|---|---|
-| Anual | `2024` | `EXTRACT(YEAR FROM fecha)::text` o `anio::text` |
-| Trimestral | `2024-Q1` | `anio::text \|\| '-Q' \|\| trimestre::text` |
-| Mensual | `2024-03` | `anio::text \|\| '-' \|\| LPAD(<mes>::text, 2, '0')` |
-| Quinquenal | `2020` | `anio::text` |
+| Periodicidad | Formato   | Construcción típica                                  |
+| ------------ | --------- | ---------------------------------------------------- |
+| Anual        | `2024`    | `EXTRACT(YEAR FROM fecha)::text` o `anio::text`      |
+| Trimestral   | `2024-Q1` | `anio::text \|\| '-Q' \|\| trimestre::text`          |
+| Mensual      | `2024-03` | `anio::text \|\| '-' \|\| LPAD(<mes>::text, 2, '0')` |
+| Quinquenal   | `2020`    | `anio::text`                                         |
 
 El formato es lexicográficamente ordenable, así que ordenar por `periodo` como texto ordena
 cronológicamente.
@@ -51,11 +51,11 @@ La columna de origen **cambia según el pipeline**, porque en ETL-SIEEJ conviven
 JOIN. **El YAML absorbe esa heterogeneidad**: normaliza a `cve_geo` de 5 dígitos con `LPAD` y expone
 siempre el mismo nombre de parámetro. El servidor **nunca** intenta adivinar la columna.
 
-| Patrón | JOIN en el origen | Pipelines |
-|---|---|---|
-| Compuesto | `m.cve_mun = x.municipio_id AND m.cve_ent = x.entidad_id` | agropecuario_siap, censo_poblacion, censos_economicos, centros_educativos, denue, escuelas, establecimientos_de_salud, participacion_ciudadana, produccion_ganadera, enoe_microdatos, fiscalia |
-| CVEGEO directo (5 díg.) | `m.cvegeo = x.municipio_id` | conapo, intensidad_migratoria, marginacion, nacimientos_dgis, delitos_fuero_comun (`::INTEGER`), efipem (`LPAD(...,5,'0')`) |
-| Surrogate key | `m.id = x.municipio_id` | defunciones, repd |
+| Patrón                  | JOIN en el origen                                         | Pipelines                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compuesto               | `m.cve_mun = x.municipio_id AND m.cve_ent = x.entidad_id` | agropecuario_siap, censo_poblacion, censos_economicos, centros_educativos, denue, escuelas, establecimientos_de_salud, participacion_ciudadana, produccion_ganadera, enoe_microdatos, fiscalia |
+| CVEGEO directo (5 díg.) | `m.cvegeo = x.municipio_id`                               | conapo, intensidad_migratoria, marginacion, nacimientos_dgis, delitos_fuero_comun (`::INTEGER`), efipem (`LPAD(...,5,'0')`)                                                                    |
+| Surrogate key           | `m.id = x.municipio_id`                                   | defunciones, repd                                                                                                                                                                              |
 
 `entidad_id` sí es consistente: siempre contra `cvegeo_states.cve_ent`.
 

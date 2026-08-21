@@ -1,8 +1,8 @@
 ---
 name: Indicador nuevo
 about: Solicitar que se catalogue un indicador
-title: 'feat(catalogo): catalogar '
-labels: 'type: feature, area: catalogo'
+title: "feat(catalogo): catalogar "
+labels: "type: feature, area: catalogo"
 ---
 
 ## Qué indicador

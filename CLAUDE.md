@@ -15,18 +15,18 @@ una por pipeline. Este proyecto solo **lee**.
 
 ## Qué leer según la tarea
 
-| Si vas a… | Lee |
-|---|---|
-| Agregar o corregir un indicador | [anatomia-yaml.md](docs/anatomia-yaml.md) → [reglas-sql.md](docs/reglas-sql.md) → [periodos-y-geografia.md](docs/periodos-y-geografia.md) |
-| Tocar el motor de ejecución | [contrato-salida.md](docs/contrato-salida.md) → [reglas-sql.md](docs/reglas-sql.md) → [garantias.md](docs/garantias.md) → [errores.md](docs/errores.md) |
-| Tocar la carga del catálogo | [validaciones-catalogo.md](docs/validaciones-catalogo.md) → [anatomia-yaml.md](docs/anatomia-yaml.md) |
-| Tocar las tools MCP o las rutas REST | [superficies.md](docs/superficies.md) → [errores.md](docs/errores.md) |
-| Tocar autenticación o límites | [garantias.md](docs/garantias.md) → [configuracion.md](docs/configuracion.md) |
-| Tocar conexiones o pools | [conexiones.md](docs/conexiones.md) → [configuracion.md](docs/configuracion.md) |
-| Entender por qué algo está así | [decisiones.md](docs/decisiones.md) |
-| Saber qué indicadores existen y de dónde leen | [catalogo-piloto.md](docs/catalogo-piloto.md) |
-| Publicar una versión | [versionado.md](docs/versionado.md) |
-| Abrir un PR | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Si vas a…                                     | Lee                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agregar o corregir un indicador               | [anatomia-yaml.md](docs/anatomia-yaml.md) → [reglas-sql.md](docs/reglas-sql.md) → [periodos-y-geografia.md](docs/periodos-y-geografia.md)               |
+| Tocar el motor de ejecución                   | [contrato-salida.md](docs/contrato-salida.md) → [reglas-sql.md](docs/reglas-sql.md) → [garantias.md](docs/garantias.md) → [errores.md](docs/errores.md) |
+| Tocar la carga del catálogo                   | [validaciones-catalogo.md](docs/validaciones-catalogo.md) → [anatomia-yaml.md](docs/anatomia-yaml.md)                                                   |
+| Tocar las tools MCP o las rutas REST          | [superficies.md](docs/superficies.md) → [errores.md](docs/errores.md)                                                                                   |
+| Tocar autenticación o límites                 | [garantias.md](docs/garantias.md) → [configuracion.md](docs/configuracion.md)                                                                           |
+| Tocar conexiones o pools                      | [conexiones.md](docs/conexiones.md) → [configuracion.md](docs/configuracion.md)                                                                         |
+| Entender por qué algo está así                | [decisiones.md](docs/decisiones.md)                                                                                                                     |
+| Saber qué indicadores existen y de dónde leen | [catalogo-piloto.md](docs/catalogo-piloto.md)                                                                                                           |
+| Publicar una versión                          | [versionado.md](docs/versionado.md)                                                                                                                     |
+| Abrir un PR                                   | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                      |
 
 ## Las reglas que nunca se rompen
 

@@ -11,32 +11,32 @@ con dos invariantes que se validan: **la carpeta se llama igual que el campo `te
 
 ## Campos
 
-| Campo | Tipo | Oblig. | Reglas |
-|---|---|:-:|---|
-| `id` | `str` | Sí | Único en todo el catálogo. `snake_case`. Es la clave pública que usa el agente |
-| `nombre` | `str` | Sí | Título legible |
-| `tema` | `str` | Sí | Igual al nombre de la carpeta. Es la faceta de descubrimiento (`empleo`, `seguridad`, `pobreza`, …) |
-| `definicion` | `str` | Sí | Qué mide, en una o dos frases |
-| `unidad` | `str` | Sí | `porcentaje`, `personas`, `carpetas de investigación`, … |
-| `fuente` | `str` | Sí | Institución y programa |
-| `pipeline` | `str` | Sí | Determina **a qué base se conecta** |
-| `origen` | `str` | Sí | Vista o MV de la que lee. Solo trazabilidad; no se usa para construir el query |
-| `nivel` | enum | Sí | `nacional` \| `estatal` \| `municipal` |
-| `periodicidad` | `str` | Sí | `anual`, `trimestral`, `mensual`, `quinquenal`, … |
-| `cobertura.geografica` | `str` | Sí | Ej. `Nacional`, `Jalisco` |
-| `cobertura.temporal` | `str` | Sí | Ej. `"2017-2024"`. Entre comillas: es texto, no un rango |
-| `notas` | `str` | No | Trampas, no comparabilidad, qué **no** es el indicador. Se entrega al agente |
-| `parametros` | lista | No | Ver abajo. Vacía si el indicador no filtra |
-| `sql` | `str` | Sí | El query. **Nunca se expone** |
+| Campo                  | Tipo  | Oblig. | Reglas                                                                                              |
+| ---------------------- | ----- | :----: | --------------------------------------------------------------------------------------------------- |
+| `id`                   | `str` |   Sí   | Único en todo el catálogo. `snake_case`. Es la clave pública que usa el agente                      |
+| `nombre`               | `str` |   Sí   | Título legible                                                                                      |
+| `tema`                 | `str` |   Sí   | Igual al nombre de la carpeta. Es la faceta de descubrimiento (`empleo`, `seguridad`, `pobreza`, …) |
+| `definicion`           | `str` |   Sí   | Qué mide, en una o dos frases                                                                       |
+| `unidad`               | `str` |   Sí   | `porcentaje`, `personas`, `carpetas de investigación`, …                                            |
+| `fuente`               | `str` |   Sí   | Institución y programa                                                                              |
+| `pipeline`             | `str` |   Sí   | Determina **a qué base se conecta**                                                                 |
+| `origen`               | `str` |   Sí   | Vista o MV de la que lee. Solo trazabilidad; no se usa para construir el query                      |
+| `nivel`                | enum  |   Sí   | `nacional` \| `estatal` \| `municipal`                                                              |
+| `periodicidad`         | `str` |   Sí   | `anual`, `trimestral`, `mensual`, `quinquenal`, …                                                   |
+| `cobertura.geografica` | `str` |   Sí   | Ej. `Nacional`, `Jalisco`                                                                           |
+| `cobertura.temporal`   | `str` |   Sí   | Ej. `"2017-2024"`. Entre comillas: es texto, no un rango                                            |
+| `notas`                | `str` |   No   | Trampas, no comparabilidad, qué **no** es el indicador. Se entrega al agente                        |
+| `parametros`           | lista |   No   | Ver abajo. Vacía si el indicador no filtra                                                          |
+| `sql`                  | `str` |   Sí   | El query. **Nunca se expone**                                                                       |
 
 ### `parametros[]`
 
-| Campo | Tipo | Reglas |
-|---|---|---|
-| `nombre` | `str` | Debe aparecer como bind `:nombre` en el `sql`, y viceversa — el calce es exacto en ambas direcciones |
-| `tipo` | enum | `str` \| `int`. Nada más |
-| `requerido` | `bool` | Por defecto `false` |
-| `descripcion` | `str` | La lee el agente. **Debe incluir un ejemplo y decir qué pasa si se omite** |
+| Campo         | Tipo   | Reglas                                                                                               |
+| ------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `nombre`      | `str`  | Debe aparecer como bind `:nombre` en el `sql`, y viceversa — el calce es exacto en ambas direcciones |
+| `tipo`        | enum   | `str` \| `int`. Nada más                                                                             |
+| `requerido`   | `bool` | Por defecto `false`                                                                                  |
+| `descripcion` | `str`  | La lee el agente. **Debe incluir un ejemplo y decir qué pasa si se omite**                           |
 
 ## Esquema estricto
 

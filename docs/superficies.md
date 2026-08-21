@@ -7,11 +7,11 @@ La misma funcionalidad y el mismo motor, dos transportes, **un solo proceso ASGI
 Tres tools. Cada una delega **1:1** en el motor: **no hay lógica de negocio en esta capa**. Las tres
 se anotan con `readOnlyHint: true` y `openWorldHint: false`.
 
-| Tool | Entrada | Salida |
-|---|---|---|
-| `listar_indicadores` | `tema?`, `nivel?` | Arreglo de metadata, sin `sql` |
-| `describir_indicador` | `id` | Metadata completa, sin `sql` |
-| `consultar_indicador` | `id`, `parametros?` | Sobre con metadata + filas |
+| Tool                  | Entrada             | Salida                         |
+| --------------------- | ------------------- | ------------------------------ |
+| `listar_indicadores`  | `tema?`, `nivel?`   | Arreglo de metadata, sin `sql` |
+| `describir_indicador` | `id`                | Metadata completa, sin `sql`   |
+| `consultar_indicador` | `id`, `parametros?` | Sobre con metadata + filas     |
 
 `listar_indicadores` es el descubrimiento — lo primero que llama un agente. Devuelve una **vista
 reducida** (`id`, `nombre`, `tema`, `nivel`, `unidad`, `periodicidad`) para no quemar tokens cuando
@@ -19,15 +19,15 @@ el catálogo crezca. Sin coincidencias devuelve lista vacía, no un error.
 
 ## Rutas REST — `/v1`
 
-| Método | Ruta | Equivale a | Respuesta |
-|---|---|---|---|
-| `GET` | `/v1/indicadores?tema=&nivel=` | `listar_indicadores` | `200` |
-| `GET` | `/v1/indicadores/{id}` | `describir_indicador` | `200` / `404` |
-| `GET` | `/v1/indicadores/{id}/datos?<params>` | `consultar_indicador` | `200` / `400` / `413` / `503` |
-| `GET` | `/health` | — | `200` liveness, **sin auth** |
-| `GET` | `/ready` | — | `200` / `503` |
+| Método | Ruta                                  | Equivale a            | Respuesta                     |
+| ------ | ------------------------------------- | --------------------- | ----------------------------- |
+| `GET`  | `/v1/indicadores?tema=&nivel=`        | `listar_indicadores`  | `200`                         |
+| `GET`  | `/v1/indicadores/{id}`                | `describir_indicador` | `200` / `404`                 |
+| `GET`  | `/v1/indicadores/{id}/datos?<params>` | `consultar_indicador` | `200` / `400` / `413` / `503` |
+| `GET`  | `/health`                             | —                     | `200` liveness, **sin auth**  |
+| `GET`  | `/ready`                              | —                     | `200` / `503`                 |
 
-Los parámetros del indicador viajan como *query params* con el **mismo nombre** que declara el YAML.
+Los parámetros del indicador viajan como _query params_ con el **mismo nombre** que declara el YAML.
 Un query param no declarado produce **`400`**, no se ignora.
 
 ## El sobre de respuesta
@@ -39,9 +39,15 @@ Un query param no declarado produce **`400`**, no se ignora.
   "unidad": "porcentaje",
   "fuente": "CONEVAL — Medición multidimensional de la pobreza",
   "notas": "Los años disponibles son 2010, 2015 y 2020; no es una serie anual continua.",
-  "parametros_aplicados": {"cve_geo": "14039", "anio_min": null},
+  "parametros_aplicados": { "cve_geo": "14039", "anio_min": null },
   "filas": [
-    {"cve_geo": "14039", "nombre_geo": "Guadalajara", "periodo": "2010", "valor": 26.4, "categoria": null}
+    {
+      "cve_geo": "14039",
+      "nombre_geo": "Guadalajara",
+      "periodo": "2010",
+      "valor": 26.4,
+      "categoria": null
+    }
   ]
 }
 ```

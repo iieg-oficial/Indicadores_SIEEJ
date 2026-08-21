@@ -3,13 +3,13 @@
 Cinco garantías del servidor. **Perder cualquiera convierte el proyecto en una consola SQL abierta a
 un modelo de lenguaje.** Ninguna es negociable.
 
-| # | Garantía | Cómo se preserva |
-|:-:|---|---|
-| 1 | El agente **nunca ve** el SQL | La metadata que sale al exterior es el YAML **sin** el campo `sql`; tampoco aparece en errores ni en logs |
-| 2 | El agente **nunca escribe** SQL | La única entrada libre son los **valores** de los parámetros declarados |
-| 3 | Los valores viajan como **binds** | Nunca interpolación de cadenas — ver [reglas-sql.md](reglas-sql.md) |
-| 4 | La transacción es de **solo lectura** | `execution_options(postgresql_readonly=True)` / `SET TRANSACTION READ ONLY` |
-| 5 | El resultado está **acotado** | `LIMIT <LIMITE+1>` y error ruidoso al excederlo |
+|  #  | Garantía                              | Cómo se preserva                                                                                          |
+| :-: | ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+|  1  | El agente **nunca ve** el SQL         | La metadata que sale al exterior es el YAML **sin** el campo `sql`; tampoco aparece en errores ni en logs |
+|  2  | El agente **nunca escribe** SQL       | La única entrada libre son los **valores** de los parámetros declarados                                   |
+|  3  | Los valores viajan como **binds**     | Nunca interpolación de cadenas — ver [reglas-sql.md](reglas-sql.md)                                       |
+|  4  | La transacción es de **solo lectura** | `execution_options(postgresql_readonly=True)` / `SET TRANSACTION READ ONLY`                               |
+|  5  | El resultado está **acotado**         | `LIMIT <LIMITE+1>` y error ruidoso al excederlo                                                           |
 
 ## El límite falla ruidoso, no trunca en silencio
 

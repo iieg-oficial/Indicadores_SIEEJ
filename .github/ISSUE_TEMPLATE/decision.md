@@ -1,8 +1,8 @@
 ---
 name: Decisión
 about: Punto que debe resolver alguien fuera del equipo de desarrollo
-title: 'spike: '
-labels: 'decision'
+title: "spike: "
+labels: "decision"
 ---
 
 ## Qué hay que decidir

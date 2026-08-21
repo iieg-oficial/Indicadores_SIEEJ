@@ -1,7 +1,7 @@
 # Versionado
 
 **`vX.Y`**, donde `X` es el major y `Y` el minor release. El tercer componente existe pero **se omite
-cuando es cero**: se usa solo para un *quick fix* sobre una minor ya publicada.
+cuando es cero**: se usa solo para un _quick fix_ sobre una minor ya publicada.
 
 ```
 v0.1      primera versión de desarrollo
@@ -14,9 +14,9 @@ v0.3      siguiente minor
 
 **Cada major lleva asociado un animal endémico de México**, que nombra la serie completa.
 
-| Serie | Animal |
-|---|---|
-| `0.x` | **Ajolote** |
+| Serie | Animal                               |
+| ----- | ------------------------------------ |
+| `0.x` | **Ajolote**                          |
 | `1.x` | por definir antes de cerrar la `0.x` |
 
 `0.1`, `0.2`, `0.3`… todas son Ajolote. El animal del siguiente major se elige **antes** de cerrar el

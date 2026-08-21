@@ -23,11 +23,11 @@ un indicador y le pasa valores a sus parámetros declarados.
 
 Tres tools MCP en `/mcp` y sus rutas REST equivalentes en `/v1`:
 
-| Tool MCP | Ruta REST | Para qué |
-|---|---|---|
-| `listar_indicadores` | `GET /v1/indicadores` | Descubrir qué hay |
-| `describir_indicador` | `GET /v1/indicadores/{id}` | Ver qué parámetros acepta |
-| `consultar_indicador` | `GET /v1/indicadores/{id}/datos` | Traer los datos |
+| Tool MCP              | Ruta REST                        | Para qué                  |
+| --------------------- | -------------------------------- | ------------------------- |
+| `listar_indicadores`  | `GET /v1/indicadores`            | Descubrir qué hay         |
+| `describir_indicador` | `GET /v1/indicadores/{id}`       | Ver qué parámetros acepta |
+| `consultar_indicador` | `GET /v1/indicadores/{id}/datos` | Traer los datos           |
 
 Toda consulta devuelve las mismas cinco columnas —`cve_geo`, `nombre_geo`, `periodo`, `valor`,
 `categoria`— que es lo que vuelve intercambiables 33 esquemas distintos. Ver

@@ -16,10 +16,10 @@ Los parámetros ausentes se mandan como `NULL` y la condición se neutraliza sol
 construcción dinámica de SQL, **no existe superficie de inyección**: los valores viajan siempre como
 binds del driver.
 
-## 2. `CAST(:param AS tipo)` en *cada* aparición
+## 2. `CAST(:param AS tipo)` en _cada_ aparición
 
 No solo en la primera. Un bind `NULL` sin cast hace que PostgreSQL falle con
-*"could not determine data type of parameter $1"*, porque no puede inferir el tipo de un `NULL` suelto.
+_"could not determine data type of parameter $1"_, porque no puede inferir el tipo de un `NULL` suelto.
 
 ## 3. Proyectar las cinco columnas con `AS`
 

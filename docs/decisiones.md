@@ -2,16 +2,16 @@
 
 Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan en otro lado.
 
-| # | Decisión | Elección | Consecuencia |
-|:-:|---|---|---|
-| D1 | Framework | **FastMCP 3.x** | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos |
-| D2 | Transporte MCP | **Streamable HTTP** en `/mcp`, remoto y multiusuario | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD |
-| D3 | Superficie doble | **MCP + REST en el mismo ASGI app** | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica |
-| D4 | Dónde vive el catálogo | **En este repositorio** | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable |
-| D5 | Motor de ejecución | **Propio**, portado de ETL-SIEEJ | Sin dependencia de `core.*` del ETL; el proyecto es autónomo |
-| D6 | Acceso a datos | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP |
-| D7 | Contrato de salida | **Formato largo de 5 columnas** | 33 esquemas distintos se vuelven intercambiables para el agente |
-| D8 | Esquema del YAML | **Congelado en v1**, con `extra="forbid"` | Impide que este catálogo y el que quedó en el ETL se bifurquen |
+|  #  | Decisión               | Elección                                                 | Consecuencia                                                                    |
+| :-: | ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| D1  | Framework              | **FastMCP 3.x**                                          | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos         |
+| D2  | Transporte MCP         | **Streamable HTTP** en `/mcp`, remoto y multiusuario     | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD       |
+| D3  | Superficie doble       | **MCP + REST en el mismo ASGI app**                      | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica |
+| D4  | Dónde vive el catálogo | **En este repositorio**                                  | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable               |
+| D5  | Motor de ejecución     | **Propio**, portado de ETL-SIEEJ                         | Sin dependencia de `core.*` del ETL; el proyecto es autónomo                    |
+| D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP              |
+| D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                 |
+| D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 
@@ -24,14 +24,14 @@ catálogo revisado por humanos entre medias.
 
 ## Lo que está deliberadamente fuera de v1
 
-| Fuera de alcance | Por qué |
-|---|---|
-| Tool de SQL libre, aunque sea de solo lectura | Rompe la garantía central: *el agente nunca escribe SQL* |
-| Exposición del esquema de las bases | Mismo motivo; el agente consume indicadores, no esquemas |
-| Escritura de cualquier tipo, incluido `REFRESH MATERIALIZED VIEW` | Refrescar las MV sigue siendo del `load.py` de cada pipeline en ETL-SIEEJ |
-| Caché de resultados | Optimización prematura; primero se mide |
-| Generación de gráficas o archivos | El agente hace eso con las filas que recibe |
-| Paginación | El límite falla ruidoso y el error nombra los filtros; se reevalúa con datos |
+| Fuera de alcance                                                  | Por qué                                                                      |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Tool de SQL libre, aunque sea de solo lectura                     | Rompe la garantía central: _el agente nunca escribe SQL_                     |
+| Exposición del esquema de las bases                               | Mismo motivo; el agente consume indicadores, no esquemas                     |
+| Escritura de cualquier tipo, incluido `REFRESH MATERIALIZED VIEW` | Refrescar las MV sigue siendo del `load.py` de cada pipeline en ETL-SIEEJ    |
+| Caché de resultados                                               | Optimización prematura; primero se mide                                      |
+| Generación de gráficas o archivos                                 | El agente hace eso con las filas que recibe                                  |
+| Paginación                                                        | El límite falla ruidoso y el error nombra los filtros; se reevalúa con datos |
 
 ## Beneficio operativo
 

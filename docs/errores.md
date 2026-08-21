@@ -3,19 +3,19 @@
 Los mensajes están redactados para que **el agente pueda corregirse solo**. La capa de transporte los
 traduce sin reescribirlos.
 
-| Situación | Mensaje | HTTP | ¿Recuperable? |
-|---|---|:-:|:-:|
-| `id` inexistente | `Indicador '<id>' no existe en el catálogo` | 404 | Sí — vuelve a `listar_indicadores` |
-| Parámetro no declarado | `<id>: parámetros desconocidos ['<x>']` | 400 | Sí — vuelve a `describir_indicador` |
-| Falta parámetro requerido | `<id>: falta el parámetro requerido '<x>'` | 400 | Sí |
-| Valor no coaccionable | error de conversión del tipo | 400 | Sí |
-| Excede el límite | `<id>: la consulta excede 5000 filas; acota con [...]` | 413 | Sí — reintenta con filtro |
-| Sin DSN para el pipeline | `<id>: indicador no disponible en este despliegue` | 503 | No — es configuración |
-| Base caída o query fallida | error genérico, **sin el SQL ni el DSN** | 502 | No |
-| Sin token o token inválido | `no autenticado` / `token inválido` | 401 | No |
-| Token sin el scope | `el token no tiene el scope 'indicadores:read'` | 403 | No |
-| Rate limit excedido | `demasiadas consultas; reintenta en <n>s` | 429 | Sí — con espera |
-| Catálogo inválido | ver [validaciones-catalogo.md](validaciones-catalogo.md) | — | No — impide el arranque |
+| Situación                  | Mensaje                                                  | HTTP |            ¿Recuperable?            |
+| -------------------------- | -------------------------------------------------------- | :--: | :---------------------------------: |
+| `id` inexistente           | `Indicador '<id>' no existe en el catálogo`              | 404  | Sí — vuelve a `listar_indicadores`  |
+| Parámetro no declarado     | `<id>: parámetros desconocidos ['<x>']`                  | 400  | Sí — vuelve a `describir_indicador` |
+| Falta parámetro requerido  | `<id>: falta el parámetro requerido '<x>'`               | 400  |                 Sí                  |
+| Valor no coaccionable      | error de conversión del tipo                             | 400  |                 Sí                  |
+| Excede el límite           | `<id>: la consulta excede 5000 filas; acota con [...]`   | 413  |      Sí — reintenta con filtro      |
+| Sin DSN para el pipeline   | `<id>: indicador no disponible en este despliegue`       | 503  |        No — es configuración        |
+| Base caída o query fallida | error genérico, **sin el SQL ni el DSN**                 | 502  |                 No                  |
+| Sin token o token inválido | `no autenticado` / `token inválido`                      | 401  |                 No                  |
+| Token sin el scope         | `el token no tiene el scope 'indicadores:read'`          | 403  |                 No                  |
+| Rate limit excedido        | `demasiadas consultas; reintenta en <n>s`                | 429  |           Sí — con espera           |
+| Catálogo inválido          | ver [validaciones-catalogo.md](validaciones-catalogo.md) |  —   |       No — impide el arranque       |
 
 ## Dos reglas
 
