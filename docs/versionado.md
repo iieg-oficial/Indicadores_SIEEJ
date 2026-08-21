@@ -26,11 +26,28 @@ anterior, no el día del release.
 
 El comportamiento **por defecto** antes de `1.0.0` ya produce esta secuencia:
 
-- un commit `feat:` sube la **minor** → `0.1` → `0.2`, el uso normal;
-- un commit `fix:` sube el **patch** → `0.2.1`, el quick fix.
+- si el ciclo incluye al menos un `feat:`, sube la **minor** → `0.1` → `0.2`, el uso normal;
+- si solo hubo `fix:` u otros tipos, sube el **patch** → `0.2.1`, el quick fix.
 
-Los demás tipos (`chore`, `docs`, `test`, `ci`, `refactor`, `update`, `perf`, `style`, `build`) no mueven
-la versión.
+> **Cualquier commit convencional mueve la versión, al menos el patch.** `docs`, `chore`, `test`,
+> `ci`, `style` y `build` no aparecen en el CHANGELOG como novedades, pero sí cuentan para el bump.
+> No existe un tipo "neutro" que no publique nada.
+
+## Publicar es mergear el PR de release
+
+Lo que controla cuántas versiones existen **no** es el tipo de commit, sino **cuándo** se mergea el
+PR que abre release-please.
+
+Ese PR se queda abierto y **acumula** todo lo que entra a `main`, recalculando la versión propuesta
+en cada merge. Mientras no se mergee, no hay release ni tag.
+
+- Se deja acumular durante el ciclo. Cuando el ciclo incluya un `feat`, el PR pasará solo de `0.1.1`
+  a `0.2.0`.
+- Se mergea cuando la versión está lista para publicarse — ahí nace `v0.2 Ajolote`.
+- Mergearlo después de un ciclo sin `feat` publica un patch: eso, y solo eso, es el _quick fix_.
+
+**Mergear el PR de release en cada cambio produce una versión por PR**, que es justo lo que la
+convención `vX.Y` quiere evitar.
 
 > **No activar `bump-patch-for-minor-pre-major`.** Esa opción manda los `feat` al patch y rompería la
 > convención, dejando `0.1.1`, `0.1.2` donde deberían ir `0.2`, `0.3`.
