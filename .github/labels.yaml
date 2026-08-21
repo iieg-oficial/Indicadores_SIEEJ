@@ -1,64 +1,20 @@
-# Catálogo de labels del repositorio. Refleja lo que existe en GitHub.
+# Catálogo de labels del repositorio.
+#
+# Deliberadamente son pocas. El título de cada issue es un conventional commit
+# —`feat(motor):`, `test(catalogo):`, `spike(auth):`— así que el tipo y el área
+# ya viajan ahí, y el milestone lleva la fase. Etiquetar eso otra vez solo
+# obliga a mantener sincronizadas dos fuentes que dicen lo mismo.
+#
+# Aquí queda únicamente lo que no se deduce del título ni del milestone.
 
-# Tipo de trabajo
-- name: "type: feature"
-  color: "1d76db"
-  description: "Nueva funcionalidad o capacidad del sistema"
-- name: "type: bug"
-  color: "b60205"
-  description: "Algo no funciona como se espera"
-- name: "type: chore"
-  color: "bfd4f2"
-  description: "Tooling, build, infraestructura del repositorio"
-- name: "type: documentation"
-  color: "fbca04"
-  description: "Mejoras o adiciones a la documentación"
-- name: "type: test"
-  color: "d93f0b"
-  description: "Pruebas automatizadas"
-- name: "type: refactor"
-  color: "5319e7"
-  description: "Refactor sin cambio de comportamiento"
-
-# Área del sistema
-- name: "area: motor"
-  color: "0e8a16"
-  description: "Ejecución de indicadores, binds, límites y errores"
-- name: "area: catalogo"
-  color: "c2e0c6"
-  description: "Catálogo YAML, validaciones y contenido de indicadores"
-- name: "area: mcp"
-  color: "5319e7"
-  description: "Tools MCP y transporte Streamable HTTP"
-- name: "area: rest"
-  color: "1d76db"
-  description: "API REST /v1 y OpenAPI"
-- name: "area: auth"
-  color: "d73a4a"
-  description: "Autenticación, scopes y límites por token"
-- name: "area: infra"
-  color: "2496ed"
-  description: "CI, Docker, despliegue y observabilidad"
-- name: "area: bd"
-  color: "cc0000"
-  description: "Roles, permisos y conectividad a PostgreSQL"
-
-# Proceso
 - name: "decision"
   color: "fef2c0"
   description: "Decisión abierta que debe cerrar alguien fuera del equipo"
+
 - name: "bloqueante"
   color: "e11d21"
-  description: "Bloquea el avance de los demás carriles"
-- name: "carril: A"
-  color: "ededed"
-  description: "Motor, catálogo, modelo y CLI"
-- name: "carril: B"
-  color: "ededed"
-  description: "Superficies MCP y REST, auth"
-- name: "carril: C"
-  color: "ededed"
-  description: "Repo, configuración, CI, despliegue y operación"
+  description: "Bloquea el avance del resto del backlog"
+
 - name: "repo: etl"
   color: "000000"
   description: "El trabajo se realiza en el repositorio ETL-SIEEJ"
