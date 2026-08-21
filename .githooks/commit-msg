@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Valida el mensaje de commit contra la convención del proyecto.
+# Formato: <tipo>(<scope>): <descripción>
+#     o:   <tipo>: <descripción>
+
+commit_msg_file="$1"
+commit_msg=$(head -1 "$commit_msg_file")
+
+# Los commits de merge se permiten tal cual.
+if echo "$commit_msg" | grep -qE "^Merge "; then
+  exit 0
+fi
+
+TYPES="feat|fix|update|refactor|chore|docs|test|ci|perf|style|build"
+PATTERN="^($TYPES)(\([a-z0-9_-]+\))?: .+"
+
+if ! echo "$commit_msg" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "ERROR: El mensaje de commit no sigue la convención."
+  echo ""
+  echo "  Formato: <tipo>(<scope>): <descripción>"
+  echo "  Tipos:   $TYPES"
+  echo "  Scope:   (opcional) área afectada (catalogo, motor, mcp, api, auth, ...)"
+  echo ""
+  echo "  Ejemplos:"
+  echo "    feat(catalogo): add las ocho validaciones de carga"
+  echo "    fix(motor): corrige la coacción de parámetros opcionales"
+  echo "    test(mcp): add pruebas de las tres tools"
+  echo "    docs: actualiza la guía para agregar un indicador"
+  echo ""
+  echo "  Recuerda: solo feat y fix mueven la versión (ver docs/versionado.md)."
+  echo ""
+  echo "  Tu mensaje: $commit_msg"
+  echo ""
+  exit 1
+fi
