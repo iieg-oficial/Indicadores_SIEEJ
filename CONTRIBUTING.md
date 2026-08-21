@@ -2,8 +2,12 @@
 
 ## Todo cambio empieza con un issue
 
-Con criterios de aceptación y sus labels. El backlog está organizado en milestones `F0`–`F4` y en
-tres carriles (`carril: A` motor y catálogo, `carril: B` superficies, `carril: C` infraestructura).
+Con criterios de aceptación. El backlog está organizado en milestones `F0`–`F4`, y cada issue
+declara en su cuerpo de qué otros depende.
+
+Las labels son pocas a propósito: el título del issue es un conventional commit, así que el tipo
+y el área ya están ahí. Solo se etiqueta lo que no se deduce del título ni del milestone —
+`bloqueante`, `decision` y `repo: etl`. El reparto entre personas se hace con _assignees_.
 
 ## Ramas
 
