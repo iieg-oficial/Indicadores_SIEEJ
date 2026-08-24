@@ -20,8 +20,12 @@ jobs:
 
       - name: Leer la versión y el animal del commit
         id: datos
+        # El mensaje del commit viaja por env, no interpolado en el script: un ${{ }}
+        # dentro de `run` deja que el texto del commit se ejecute como shell.
+        env:
+          MENSAJE: ${{ github.event.head_commit.message }}
         run: |
-          titulo=$(echo "${{ github.event.head_commit.message }}" | head -1)
+          titulo=$(echo "$MENSAJE" | head -1)
           version=$(echo "$titulo" | sed -E 's/^chore\(release\): v([0-9.]+) .*/\1/')
           animal=$(echo "$titulo" | sed -E 's/^chore\(release\): v[0-9.]+ (.*)$/\1/')
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -30,10 +34,12 @@ jobs:
       - name: Crear el tag y el release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.datos.outputs.version }}
+          ANIMAL: ${{ steps.datos.outputs.animal }}
         run: |
-          v="v${{ steps.datos.outputs.version }}"
+          v="v$VERSION"
           git tag "$v"
           git push origin "$v"
           # La entrada más reciente del CHANGELOG es la de esta versión.
           notas=$(awk '/^## /{n++} n==1' CHANGELOG.md)
-          gh release create "$v" --title "$v ${{ steps.datos.outputs.animal }}" --notes "$notas"
+          gh release create "$v" --title "$v $ANIMAL" --notes "$notas"

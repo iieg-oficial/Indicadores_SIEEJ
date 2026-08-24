@@ -1,0 +1,3 @@
+# Todo cambio entra por una de las cuatro plantillas: el título es un conventional
+# commit, y de ahí salen el tipo y el scope que después viajan al commit y al CHANGELOG.
+blank_issues_enabled: false
