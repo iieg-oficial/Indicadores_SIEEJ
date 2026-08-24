@@ -56,6 +56,7 @@ docker compose up         # solo necesita el .env
 El índice de qué leer según lo que vayas a hacer está en **[CLAUDE.md](CLAUDE.md)**. Los documentos
 viven en [`docs/`](docs/), uno por pregunta:
 
+[dar de alta un flujo nuevo](docs/nuevo-flujo.md) ·
 [contrato de salida](docs/contrato-salida.md) ·
 [anatomía del YAML](docs/anatomia-yaml.md) ·
 [reglas del SQL](docs/reglas-sql.md) ·

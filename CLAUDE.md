@@ -18,6 +18,7 @@ una por pipeline. Este proyecto solo **lee**.
 | Si vas a…                                     | Lee                                                                                                                                                     |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Agregar o corregir un indicador               | [anatomia-yaml.md](docs/anatomia-yaml.md) → [reglas-sql.md](docs/reglas-sql.md) → [periodos-y-geografia.md](docs/periodos-y-geografia.md)               |
+| Dar de alta un flujo nuevo completo           | [nuevo-flujo.md](docs/nuevo-flujo.md)                                                                                                                     |
 | Tocar el motor de ejecución                   | [contrato-salida.md](docs/contrato-salida.md) → [reglas-sql.md](docs/reglas-sql.md) → [garantias.md](docs/garantias.md) → [errores.md](docs/errores.md) |
 | Tocar la carga del catálogo                   | [validaciones-catalogo.md](docs/validaciones-catalogo.md) → [anatomia-yaml.md](docs/anatomia-yaml.md)                                                   |
 | Tocar las tools MCP o las rutas REST          | [superficies.md](docs/superficies.md) → [errores.md](docs/errores.md)                                                                                   |
