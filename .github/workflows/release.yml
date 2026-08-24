@@ -27,30 +27,40 @@ jobs:
           fetch-depth: 0
 
       - name: Validar el formato de la versión
+        # Los inputs viajan por env, no interpolados en el script: un ${{ }} dentro
+        # de `run` deja que el texto del input se ejecute como shell.
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
           # vX.Y, o vX.Y.Z con Z >= 1. Un patch en cero se escribe como vX.Y.
-          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+(\.[1-9][0-9]*)?$'; then
-            echo "::error::'${{ inputs.version }}' no es válida. Usa X.Y (ej. 0.2) o X.Y.Z con Z>=1 (ej. 0.2.1)."
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+(\.[1-9][0-9]*)?$'; then
+            echo "::error::'$VERSION' no es válida. Usa X.Y (ej. 0.2) o X.Y.Z con Z>=1 (ej. 0.2.1)."
             echo "::error::Un patch en cero no se escribe: la versión es X.Y, no X.Y.0."
             exit 1
           fi
-          if git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
-            echo "::error::El tag v${{ inputs.version }} ya existe."
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::El tag v$VERSION ya existe."
             exit 1
           fi
 
       - name: Actualizar la versión en el paquete
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          sed -i 's/^version = ".*"$/version = "${{ inputs.version }}"/' pyproject.toml
-          sed -i 's/^__version__ = ".*"$/__version__ = "${{ inputs.version }}"/' src/indicadores_sieej/__init__.py
+          sed -i "s/^version = \".*\"$/version = \"$VERSION\"/" pyproject.toml
+          sed -i "s/^__version__ = \".*\"$/__version__ = \"$VERSION\"/" src/indicadores_sieej/__init__.py
 
       - name: Generar la entrada del CHANGELOG
+        env:
+          VERSION: ${{ inputs.version }}
+          ANIMAL: ${{ inputs.animal }}
+          REPO: ${{ github.repository }}
         run: |
           anterior=$(git tag --sort=-v:refname | head -1)
           rango="${anterior:+$anterior..}HEAD"
           hubo_algo=0
           {
-            echo "## v${{ inputs.version }} ${{ inputs.animal }} ($(date +%Y-%m-%d))"
+            echo "## v$VERSION $ANIMAL ($(date +%Y-%m-%d))"
             echo
             for tipo in feat fix; do
               case $tipo in
@@ -66,7 +76,7 @@ jobs:
               echo "$cuerpo" | while IFS='|' read -r msg sha; do
                 # "feat(motor): X" -> "**motor:** X";  "feat: X" -> "X"
                 limpio=$(echo "$msg" | sed -E "s/^$tipo\(([a-z0-9_-]+)\): /**\1:** /; s/^$tipo: //")
-                echo "- $limpio ([$sha](https://github.com/${{ github.repository }}/commit/$sha))"
+                echo "- $limpio ([$sha](https://github.com/$REPO/commit/$sha))"
               done
               echo
             done
@@ -83,15 +93,17 @@ jobs:
       - name: Abrir el PR de release
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+          ANIMAL: ${{ inputs.animal }}
         run: |
-          rama="release-v${{ inputs.version }}"
+          rama="release-v$VERSION"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$rama"
           git add pyproject.toml src/indicadores_sieej/__init__.py CHANGELOG.md
-          git commit -m "chore(release): v${{ inputs.version }} ${{ inputs.animal }}"
+          git commit -m "chore(release): v$VERSION $ANIMAL"
           git push origin "$rama"
           gh pr create --base main --head "$rama" \
-            --title "chore(release): v${{ inputs.version }} ${{ inputs.animal }}" \
+            --title "chore(release): v$VERSION $ANIMAL" \
             --body "$(printf 'Publica **v%s %s**.\n\nAl mergear este PR se crean el tag `v%s` y el release.\n\n---\n\n%s' \
-                      "${{ inputs.version }}" "${{ inputs.animal }}" "${{ inputs.version }}" "$(cat /tmp/entrada.md)")"
+                      "$VERSION" "$ANIMAL" "$VERSION" "$(cat /tmp/entrada.md)")"
