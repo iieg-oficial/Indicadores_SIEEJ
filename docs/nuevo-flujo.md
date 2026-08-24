@@ -107,10 +107,10 @@ desarrollo: el YAML contiene definiciones institucionales, no solo SQL.
 
 ---
 
-> **Estado hoy.** Los pasos 5 y 6 todavía no se pueden ejecutar: el CLI y las superficies están
-> pendientes en el backlog. Hasta que existan, esta guía sirve para preparar el YAML y la conexión, y
-> la verificación queda en revisar el YAML a mano contra
-> [validaciones-catalogo.md](validaciones-catalogo.md).
+> **Estado hoy.** El paso 5 ya se puede ejecutar: el CLI valida el catálogo y el mismo comando corre
+> como gate en el CI. El paso 6 sigue pendiente de las superficies MCP y REST; mientras tanto,
+> `python -m indicadores_sieej.cli describir <id>` y `... ejecutar <id> -p nombre=valor` verifican el
+> indicador sin levantar el servidor.
 
 ---
 
