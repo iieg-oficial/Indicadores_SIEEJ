@@ -69,11 +69,11 @@ Las siete validaciones y qué mensaje da cada una: [validaciones-catalogo.md](va
 
 El indicador no está dado de alta hasta que las tres superficies lo ven:
 
-| Qué se comprueba              | REST                                          | MCP                    |
-| ----------------------------- | --------------------------------------------- | ---------------------- |
-| Aparece en el descubrimiento  | `GET /v1/indicadores?tema=<tema>`             | `listar_indicadores`   |
-| Declara sus parámetros        | `GET /v1/indicadores/<id>`                    | `describir_indicador`  |
-| Devuelve filas                | `GET /v1/indicadores/<id>/datos?cve_geo=14039` | `consultar_indicador` |
+| Qué se comprueba             | REST                                           | MCP                   |
+| ---------------------------- | ---------------------------------------------- | --------------------- |
+| Aparece en el descubrimiento | `GET /v1/indicadores?tema=<tema>`              | `listar_indicadores`  |
+| Declara sus parámetros       | `GET /v1/indicadores/<id>`                     | `describir_indicador` |
+| Devuelve filas               | `GET /v1/indicadores/<id>/datos?cve_geo=14039` | `consultar_indicador` |
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" "$IIEGDB_BASE_URL/v1/indicadores?tema=empleo"
