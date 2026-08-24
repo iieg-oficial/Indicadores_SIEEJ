@@ -12,17 +12,16 @@ FILA = dict.fromkeys(COLUMNAS, None)
 
 def cfg(**cambios) -> Settings:
     """Settings completas sin leer el entorno ni el .env del desarrollador."""
-    return Settings(
-        _env_file=None,
-        pg_host="h",
-        pg_user="u",
-        pg_password="p",
-        pipelines="*",
-        auth_mode="static",
-        static_tokens="t:c:indicadores:read",
-        base_url="https://x",
-        **cambios,
-    )
+    base = {
+        "pg_host": "h",
+        "pg_user": "u",
+        "pg_password": "p",
+        "pipelines": "*",
+        "auth_mode": "static",
+        "static_tokens": "t:c:indicadores:read",
+        "base_url": "https://x",
+    }
+    return Settings(_env_file=None, **{**base, **cambios})
 
 
 class _Resultado:
