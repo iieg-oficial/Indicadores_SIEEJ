@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from indicadores_sieej.catalogo import BINDS, CATALOGO, COLUMNAS, cargar, listar, obtener
+from indicadores_sieej.catalogo import BINDS, CATALOGO, COLUMNAS, VISTA_REDUCIDA, cargar, listar, obtener
 from indicadores_sieej.errores import CatalogoInvalido, IndicadorNoExiste
 
 INDICADORES = list(cargar().values())
@@ -67,11 +67,18 @@ def test_sql_declara_las_cinco_columnas(ind):
         assert f"AS {columna}" in ind.sql, f"{ind.id}: falta la columna '{columna}' en el SELECT"
 
 
-def test_listar_filtra_y_oculta_el_sql():
+def test_listar_filtra_y_devuelve_la_vista_reducida():
     empleo = listar(tema="empleo")
     assert empleo and all(m["tema"] == "empleo" for m in empleo)
-    assert all("sql" not in m for m in empleo)
+    assert all(set(m) == set(VISTA_REDUCIDA) for m in empleo)
     assert all(m["nivel"] == "municipal" for m in listar(nivel="municipal"))
+    assert listar(tema="no_existe") == []
+
+
+def test_obtener_devuelve_la_metadata_completa_sin_sql():
+    metadata = obtener("pobreza_municipal").metadata()
+    assert "sql" not in metadata
+    assert metadata["definicion"] and metadata["fuente"] and metadata["parametros"]
 
 
 def test_obtener_id_inexistente():

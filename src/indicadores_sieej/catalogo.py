@@ -23,6 +23,10 @@ CATALOGO = Path(__file__).resolve().parents[2] / "catalogo"
 
 COLUMNAS = ("cve_geo", "nombre_geo", "periodo", "valor", "categoria")
 
+# listar() es el descubrimiento: devuelve una vista reducida para no quemar tokens
+# del agente cuando el catálogo crezca. La metadata completa la da obtener().
+VISTA_REDUCIDA = ("id", "nombre", "tema", "nivel", "unidad", "periodicidad")
+
 # Binds de SQLAlchemy (:param) ignorando los casts de PostgreSQL (valor::numeric).
 # Sin el lookbehind, `valor::numeric` se lee como un bind llamado `numeric` y toda la
 # validación de parámetros da falsos positivos.
@@ -100,9 +104,12 @@ def cargar(raiz: Path = CATALOGO) -> dict[str, Indicador]:
 
 
 def listar(tema: Optional[str] = None, nivel: Optional[str] = None) -> list[dict]:
-    """Metadata de los indicadores (sin el sql), filtrable por tema y nivel."""
+    """Vista reducida de los indicadores, filtrable por tema y nivel.
+
+    Sin coincidencias devuelve lista vacía, no un error.
+    """
     return [
-        ind.metadata()
+        {campo: getattr(ind, campo) for campo in VISTA_REDUCIDA}
         for ind in cargar().values()
         if (tema is None or ind.tema == tema) and (nivel is None or ind.nivel == nivel)
     ]
