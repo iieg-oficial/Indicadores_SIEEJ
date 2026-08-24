@@ -37,7 +37,7 @@ la señal es que debe partirse, no que le falte cuerpo.
 Solo `feat` y `fix` aparecen en el CHANGELOG. La versión la decide una persona al publicar,
 no el historial de commits — ver [docs/versionado.md](docs/versionado.md).
 
-El hook local lo valida. Instálalo con:
+El hook local lo valida, y desde que el CI se recortó es lo único que lo valida. Instálalo con:
 
 ```bash
 pre-commit install --hook-type commit-msg
@@ -55,14 +55,19 @@ git config core.hooksPath .githooks
 
 ## CI
 
-En cada PR corren tres jobs: linter y formato, pruebas sin base de datos, y la validación del
-catálogo. Las pruebas marcadas `integration` requieren bases reales y **no** corren en CI.
+En cada PR corre **un solo job**: las pruebas sin base de datos. Las marcadas `integration`
+requieren bases reales y **no** corren en CI.
+
+El formato y la convención de commits **no se verifican en CI a propósito**: los cubren los hooks
+locales, y pagar tres runners por lo que un hook resuelve en un segundo no vale los minutos. Por eso
+instalarlos no es opcional.
 
 ```bash
-pre-commit run --all-files
-pytest -m "not integration"
-python -m indicadores_sieej.cli validar
+pre-commit run --all-files    # local: ruff, prettier, higiene de archivos
+pytest -m "not integration"   # lo mismo que corre el CI
 ```
+
+La validación del catálogo se sumará al job cuando exista el CLI que la ejecuta.
 
 ## Documentación
 

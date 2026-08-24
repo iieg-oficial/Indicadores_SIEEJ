@@ -6,9 +6,8 @@ Closes #
 
 ## Cómo se verificó
 
-- [ ] `pre-commit run --all-files`
+- [ ] `pre-commit run --all-files` — el CI no lo corre, el hook local sí
 - [ ] `pytest -m "not integration"`
-- [ ] `python -m indicadores_sieej.cli validar`
 
 ## Revisión
 
