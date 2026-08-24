@@ -20,7 +20,8 @@ title: "feat(catalogo): catalogar "
 
 ## Prerrequisitos de infraestructura
 
-- [ ] `IIEGDB_DSN_<PIPELINE>` configurado
+- [ ] El pipeline está en `IIEGDB_PIPELINES`
+- [ ] Su base vive en el servidor por defecto, o tiene su `IIEGDB_DSN_<PIPELINE>`
 - [ ] Rol de solo lectura con `GRANT SELECT` sobre la vista
 - [ ] Ruta de red hacia esa base
 
