@@ -6,7 +6,7 @@ consulta.
 > **Un catálogo inválido impide el arranque del servidor**, con un mensaje que nombra el archivo y la
 > falla. Nunca degrada en un error servido al usuario en producción.
 
-## Las ocho validaciones
+## Las siete validaciones
 
 | Validación                                                       | Mensaje de error                                                                                      |
 | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -14,10 +14,13 @@ consulta.
 | `id` único en todo el catálogo                                   | `id duplicado '<id>'`                                                                                 |
 | Nombre de archivo (sin extensión) == `id`                        | `el id no coincide con el nombre del archivo`                                                         |
 | Nombre de carpeta == `tema`                                      | `el tema no coincide con la carpeta`                                                                  |
-| `pipeline` declarado en la configuración de conexiones           | `el pipeline '<p>' no está declarado`                                                                 |
 | `sql` empieza con `SELECT` o `WITH`                              | `el sql debe empezar con SELECT o WITH`                                                               |
 | `sql` proyecta las 5 columnas con `AS`                           | `el sql no proyecta las columnas [...]`                                                               |
 | `{parametros}` == `{binds del sql}`, exacto en ambas direcciones | `desajuste entre parametros y binds del sql (declarados sin usar: [...], usados sin declarar: [...])` |
+
+> **El `pipeline` no se valida aquí.** Que su base esté configurada en este despliegue es una
+> cuestión de operación, no de catálogo: un pipeline sin conexión resuelta no impide arrancar, sus
+> indicadores responden `503`. Ver [conexiones.md](conexiones.md).
 
 ## En tiempo de consulta
 
@@ -30,7 +33,7 @@ Solo quedan las que dependen de los valores recibidos:
 
 ## Gate de CI
 
-`python -m indicadores_sieej.cli validar` corre las ocho y sale con código distinto de cero si algo
+`python -m indicadores_sieej.cli validar` corre las siete y sale con código distinto de cero si algo
 falla. Es lo que bloquea todo PR que toque `catalogo/`.
 
 ---
