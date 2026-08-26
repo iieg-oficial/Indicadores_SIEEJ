@@ -9,33 +9,33 @@ parámetros que traen es justamente lo que le permite reintentar bien.
 """
 
 
-class ErrorDelBanco(Exception):
+class BankError(Exception):
     """Base común.
 
-    `http` es el código con el que la excepción sale a la superficie. `recuperable`
+    `http` es el código con el que la excepción sale a la superficie. `recoverable`
     dice si el agente puede corregirse solo con lo que trae el mensaje; los no
     recuperables no llevan SQL, DSN, credenciales ni nombres de tabla.
     """
 
     http = 500
-    recuperable = False
+    recoverable = False
 
 
-class IndicadorNoExiste(ErrorDelBanco):
+class IndicatorNotFound(BankError):
     """El `id` no está en el catálogo. El agente vuelve a `listar_indicadores`."""
 
     http = 404
-    recuperable = True
+    recoverable = True
 
 
-class ParametrosInvalidos(ErrorDelBanco):
+class InvalidParameters(BankError):
     """Parámetro no declarado, requerido ausente, o valor no coaccionable al tipo."""
 
     http = 400
-    recuperable = True
+    recoverable = True
 
 
-class LimiteExcedido(ErrorDelBanco):
+class RowLimitExceeded(BankError):
     """La consulta rebasa el límite de filas.
 
     El mensaje nombra los parámetros con los que acotar: sin esa lista el error deja
@@ -43,27 +43,27 @@ class LimiteExcedido(ErrorDelBanco):
     """
 
     http = 413
-    recuperable = True
+    recoverable = True
 
 
-class PipelineNoDisponible(ErrorDelBanco):
+class PipelineUnavailable(BankError):
     """El pipeline no tiene DSN resuelto en este despliegue.
 
     Es configuración, no catálogo: el YAML es válido y el servidor arranca igual.
     """
 
     http = 503
-    recuperable = False
+    recoverable = False
 
 
-class ErrorDeConsulta(ErrorDelBanco):
+class QueryError(BankError):
     """Base caída o consulta fallida. Al cliente va genérico; el detalle, al log."""
 
     http = 502
-    recuperable = False
+    recoverable = False
 
 
-class CatalogoInvalido(ErrorDelBanco):
+class InvalidCatalog(BankError):
     """Un YAML del catálogo no pasa alguna de las siete validaciones.
 
     Nunca viaja a un cliente: se levanta al cargar el catálogo e **impide el
@@ -71,4 +71,4 @@ class CatalogoInvalido(ErrorDelBanco):
     """
 
     http = 500
-    recuperable = False
+    recoverable = False
