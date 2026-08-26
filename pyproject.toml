@@ -16,6 +16,9 @@ dependencies = [
     # se declara aparte; el servidor que lo corre lo pone el despliegue.
     "fastmcp>=3",
     "fastapi>=0.115",
+    # Migraciones del registro de tokens, la única base que este servicio administra.
+    # Las 33 del ETL las migra ETL-SIEEJ con Flyway, y aquí nunca se les escribe.
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
