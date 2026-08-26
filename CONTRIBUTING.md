@@ -29,7 +29,9 @@ Conventional Commits, **una sola línea**, sin cuerpo:
 ```
 
 Tipos: `feat`, `fix`, `update`, `refactor`, `chore`, `docs`, `test`, `ci`, `perf`, `style`, `build`.
-Scope opcional: el área afectada (`catalogo`, `motor`, `mcp`, `api`, `auth`, `repo`…).
+Scope opcional: el área afectada (`catalogo`, `motor`, `mcp`, `api`, `auth`, `repo`…). El scope
+nombra el área en español aunque el módulo se llame `catalog.py` o `engine.py`: el mensaje del
+commit es prosa, y partir el historial en dos vocabularios lo haría ilegible hacia atrás.
 
 **Commits atómicos:** un cambio lógico por commit. Si un commit necesita un párrafo para explicarse,
 la señal es que debe partirse, no que le falte cuerpo.

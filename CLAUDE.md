@@ -55,6 +55,9 @@ tests/                    sin BD por defecto; las de integración van marcadas
 ## Convenciones
 
 - Python 3.12 · ruff (línea de 120) · pytest con el marker `integration`.
-- **Código y documentación en español**, incluida la convención de commits.
+- **Los identificadores del código van en inglés; los comentarios, docstrings, `docs/` y la
+  convención de commits, en español.** Se quedan en español tres cosas, porque son contrato y no
+  vocabulario: los campos del YAML, las cinco columnas de salida junto con las claves del sobre de
+  respuesta, y los subcomandos del CLI.
 - Commits: `<tipo>(<scope>): <descripción>`. Solo `feat` y `fix` mueven la versión.
 - Archivos cortos y de una sola responsabilidad — tanto en `docs/` como en `src/`.
