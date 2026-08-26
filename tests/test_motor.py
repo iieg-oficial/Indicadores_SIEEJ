@@ -4,7 +4,7 @@ import logging
 
 import pytest
 
-from indicadores_sieej import conexiones, motor
+from indicadores_sieej import connections, motor
 from indicadores_sieej.catalog import COLUMNS, get
 from indicadores_sieej.errors import (
     QueryError,
@@ -115,7 +115,7 @@ def test_el_sobre_lleva_metadata_parametros_y_notas(conexion):
 
 
 def test_pipeline_sin_dsn(monkeypatch):
-    monkeypatch.setattr(conexiones, "disponible", lambda *a, **k: False)
+    monkeypatch.setattr(connections, "available", lambda *a, **k: False)
     with pytest.raises(PipelineUnavailable) as exc:
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
     assert str(exc.value) == "incidencia_delictiva_municipal: indicador no disponible en este despliegue"

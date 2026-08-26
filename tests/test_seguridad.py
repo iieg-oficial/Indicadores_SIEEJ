@@ -13,7 +13,7 @@ import logging
 import pytest
 import yaml
 
-from indicadores_sieej import conexiones, motor
+from indicadores_sieej import connections, motor
 from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, BankError
 
@@ -87,7 +87,7 @@ def test_los_errores_del_motor_no_llevan_sql(ind, conexion, monkeypatch):
         motor.ejecutar(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))
 
-    monkeypatch.setattr(conexiones, "disponible", lambda *a, **k: False)
+    monkeypatch.setattr(connections, "available", lambda *a, **k: False)
     with pytest.raises(BankError) as exc:
         motor.ejecutar(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))

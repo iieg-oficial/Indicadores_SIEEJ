@@ -21,7 +21,7 @@ from indicadores_sieej.errors import PipelineUnavailable
 # Pools abiertos, uno por pipeline. Es un dict y no un lru_cache porque /ready
 # necesita saber cuáles están abiertos sin abrir ninguno.
 _POOLS: dict[str, Engine] = {}
-_CANDADO = threading.Lock()
+_LOCK = threading.Lock()
 
 
 def dsn(pipeline: str, cfg: Optional[Settings] = None) -> Optional[URL | str]:
@@ -33,9 +33,9 @@ def dsn(pipeline: str, cfg: Optional[Settings] = None) -> Optional[URL | str]:
     """
     cfg = cfg or settings()
 
-    propio = os.environ.get(f"IIEGDB_DSN_{pipeline.upper()}")
-    if propio:
-        return propio
+    explicit = os.environ.get(f"IIEGDB_DSN_{pipeline.upper()}")
+    if explicit:
+        return explicit
 
     if not cfg.serves(pipeline):
         return None
@@ -53,7 +53,7 @@ def dsn(pipeline: str, cfg: Optional[Settings] = None) -> Optional[URL | str]:
     )
 
 
-def disponible(pipeline: str, cfg: Optional[Settings] = None) -> bool:
+def available(pipeline: str, cfg: Optional[Settings] = None) -> bool:
     return dsn(pipeline, cfg) is not None
 
 
@@ -65,13 +65,13 @@ def pool(pipeline: str, cfg: Optional[Settings] = None) -> Engine:
     """
     cfg = cfg or settings()
 
-    with _CANDADO:
+    with _LOCK:
         if pipeline not in _POOLS:
-            destino = dsn(pipeline, cfg)
-            if destino is None:
+            target = dsn(pipeline, cfg)
+            if target is None:
                 raise PipelineUnavailable(f"el pipeline '{pipeline}' no tiene DSN en este despliegue")
             _POOLS[pipeline] = create_engine(
-                destino,
+                target,
                 pool_size=cfg.pool_size,
                 max_overflow=cfg.pool_max_overflow,
                 pool_timeout=cfg.pool_timeout_s,
@@ -83,11 +83,11 @@ def pool(pipeline: str, cfg: Optional[Settings] = None) -> Engine:
         return _POOLS[pipeline]
 
 
-def abierto(pipeline: str) -> bool:
+def is_open(pipeline: str) -> bool:
     return pipeline in _POOLS
 
 
-def estado(pipelines: Iterable[str], cfg: Optional[Settings] = None) -> dict[str, dict]:
+def status(pipelines: Iterable[str], cfg: Optional[Settings] = None) -> dict[str, dict]:
     """Estado por pipeline para /ready. **No abre pools.**
 
     Distingue "sin DSN" de "pool sin abrir" porque la acción del operador es distinta
@@ -95,14 +95,14 @@ def estado(pipelines: Iterable[str], cfg: Optional[Settings] = None) -> dict[str
     """
     cfg = cfg or settings()
     return {
-        pipeline: {"dsn": disponible(pipeline, cfg), "pool": "abierto" if abierto(pipeline) else "sin abrir"}
+        pipeline: {"dsn": available(pipeline, cfg), "pool": "open" if is_open(pipeline) else "unopened"}
         for pipeline in sorted(set(pipelines))
     }
 
 
-def cerrar_todo() -> None:
+def close_all() -> None:
     """Cierra los pools abiertos. Para el apagado del servidor y para las pruebas."""
-    with _CANDADO:
+    with _LOCK:
         while _POOLS:
-            _, motor = _POOLS.popitem()
-            motor.dispose()
+            _, engine = _POOLS.popitem()
+            engine.dispose()

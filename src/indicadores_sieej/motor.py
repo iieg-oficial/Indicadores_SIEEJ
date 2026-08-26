@@ -15,7 +15,7 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
-from indicadores_sieej import conexiones
+from indicadores_sieej import connections
 from indicadores_sieej.catalog import get
 from indicadores_sieej.config import Settings, settings
 from indicadores_sieej.errors import QueryError, RowLimitExceeded, InvalidParameters, PipelineUnavailable
@@ -65,11 +65,11 @@ def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
     ind = get(id)
     binds = _binds(ind, params)
 
-    if not conexiones.disponible(ind.pipeline, cfg):
+    if not connections.available(ind.pipeline, cfg):
         raise PipelineUnavailable(f"{ind.id}: indicador no disponible en este despliegue")
 
     try:
-        with conexiones.pool(ind.pipeline, cfg).connect() as conn:
+        with connections.pool(ind.pipeline, cfg).connect() as conn:
             conn = conn.execution_options(postgresql_readonly=True)
             filas = [dict(fila) for fila in conn.execute(_acotada(ind, cfg.row_limit), binds).mappings()]
     except SQLAlchemyError as exc:

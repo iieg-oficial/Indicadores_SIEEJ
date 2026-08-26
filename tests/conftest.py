@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import conexiones
+from indicadores_sieej import connections
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
@@ -74,8 +74,8 @@ def conexion(monkeypatch):
 
     def _montar(filas=(), falla=False):
         falsa = _Conexion(list(filas), falla)
-        monkeypatch.setattr(conexiones, "pool", lambda *a, **k: _Pool(falsa))
-        monkeypatch.setattr(conexiones, "disponible", lambda *a, **k: True)
+        monkeypatch.setattr(connections, "pool", lambda *a, **k: _Pool(falsa))
+        monkeypatch.setattr(connections, "available", lambda *a, **k: True)
         return falsa
 
     return _montar
