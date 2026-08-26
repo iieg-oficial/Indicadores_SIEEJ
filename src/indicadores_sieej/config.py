@@ -33,12 +33,25 @@ class Settings(BaseSettings):
     pipelines: str
 
     # --- Autenticación ---
-    auth_mode: Literal["static", "jwt"]
+    # `registro` es el modo de producción: tokens de autoservicio verificados contra la
+    # base propia del servicio. `static` es para desarrollo; `jwt`, para el día que haya
+    # un proveedor de identidad institucional. Decidido en #29.
+    auth_mode: Literal["static", "jwt", "registro"]
     static_tokens: Optional[SecretStr] = None
     jwks_uri: Optional[str] = None
     issuer: Optional[str] = None
     audience: Optional[str] = None
     base_url: str
+
+    # DSN propio y rol propio, **nunca derivado de IIEGDB_PG_***: ese bloque es el rol de
+    # solo lectura de las 33 bases del ETL, y derivar de ahí crearía presión para darle
+    # permisos de escritura. Eso rompería la garantía de solo lectura en todas a la vez.
+    registry_dsn: Optional[SecretStr] = None
+
+    # Las tres ventanas del registro de tokens. Ver docs/tokens.md.
+    token_ttl_days: int = 90
+    token_touch_s: int = 3600
+    token_cache_ttl_s: int = 60
 
     # --- Límites y operación ---
     row_limit: int = 5000
@@ -68,8 +81,26 @@ class Settings(BaseSettings):
                 )
                 if not value
             ]
+        elif self.auth_mode == "registro" and not self.registry_dsn:
+            missing = ["IIEGDB_REGISTRY_DSN"]
         if missing:
             raise ValueError(f"con IIEGDB_AUTH_MODE={self.auth_mode} falta {', '.join(missing)}")
+        return self
+
+    @model_validator(mode="after")
+    def _coherent_token_windows(self) -> "Settings":
+        """El orden de las tres ventanas es lo que hace correcta la caducidad por desuso.
+
+        Un token en uso refresca su `last_used_at` porque el caché expira antes que la
+        ventana de refresco, y esa antes que la de caducidad. Invertir el orden —subir el
+        caché "para bajar carga", por ejemplo— haría que un token en uso continuo caducara
+        solo, y tardaría noventa días en notarse. Por eso se falla al arrancar.
+        """
+        if not self.token_cache_ttl_s < self.token_touch_s < self.token_ttl_days * 86400:
+            raise ValueError(
+                "las ventanas del registro deben cumplir "
+                "IIEGDB_TOKEN_CACHE_TTL_S < IIEGDB_TOKEN_TOUCH_S < IIEGDB_TOKEN_TTL_DAYS en segundos"
+            )
         return self
 
     def serves(self, pipeline: str) -> bool:

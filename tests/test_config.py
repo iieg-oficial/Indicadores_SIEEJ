@@ -45,3 +45,36 @@ def test_the_password_and_the_tokens_stay_out_of_the_repr():
     cfg = _cfg(pg_password="contrasena_real", static_tokens="token_real")
     text = f"{cfg!r} {cfg.pg_password} {cfg.static_tokens}"
     assert "contrasena_real" not in text and "token_real" not in text
+
+
+# --- Modo registro y las ventanas de los tokens ---
+
+
+def test_registro_mode_demands_its_own_dsn():
+    with pytest.raises(ValidationError, match="IIEGDB_REGISTRY_DSN"):
+        _cfg(auth_mode="registro", registry_dsn=None)
+
+
+def test_registro_mode_starts_with_its_dsn():
+    cfg = _cfg(auth_mode="registro", registry_dsn="postgresql://u:p@h/registro")
+    assert cfg.registry_dsn.get_secret_value() == "postgresql://u:p@h/registro"
+
+
+def test_the_token_windows_have_the_documented_defaults():
+    cfg = _cfg()
+    assert (cfg.token_ttl_days, cfg.token_touch_s, cfg.token_cache_ttl_s) == (90, 3600, 60)
+
+
+@pytest.mark.parametrize(
+    "windows",
+    [
+        {"token_cache_ttl_s": 7200},  # el caché sobrevive a la ventana de refresco
+        {"token_touch_s": 60},  # refresco y caché empatados
+        {"token_ttl_days": 0},  # caducidad por debajo del refresco
+    ],
+)
+def test_incoherent_token_windows_block_startup(windows):
+    """Invertir el orden haría caducar un token en uso continuo, y tardaría noventa días
+    en notarse. Vale más no arrancar."""
+    with pytest.raises(ValidationError, match="IIEGDB_TOKEN_CACHE_TTL_S"):
+        _cfg(**windows)
