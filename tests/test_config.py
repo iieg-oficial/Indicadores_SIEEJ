@@ -18,16 +18,16 @@ def test_falta_una_variable_obligatoria_y_el_arranque_falla():
 def test_los_valores_por_defecto_son_los_documentados():
     settings = _cfg()
     assert (settings.pg_port, settings.pg_sslmode) == (5432, "require")
-    assert (settings.limite_filas, settings.statement_timeout_ms, settings.rate_limit) == (5000, 15000, 60)
+    assert (settings.row_limit, settings.statement_timeout_ms, settings.rate_limit) == (5000, 15000, 60)
     assert (settings.pool_size, settings.pool_max_overflow, settings.pool_timeout_s) == (2, 3, 10)
     assert settings.log_level == "INFO"
 
 
 def test_pipelines_acepta_lista_y_asterisco():
     lista = _cfg(pipelines="ilmm, enoe_microdatos ")
-    assert lista.pipelines_habilitados == ["ilmm", "enoe_microdatos"]
-    assert lista.habilita("ilmm") and not lista.habilita("conapo")
-    assert _cfg(pipelines="*").habilita("cualquiera")
+    assert lista.enabled_pipelines == ["ilmm", "enoe_microdatos"]
+    assert lista.serves("ilmm") and not lista.serves("conapo")
+    assert _cfg(pipelines="*").serves("cualquiera")
 
 
 def test_el_modo_static_exige_sus_tokens():

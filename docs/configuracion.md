@@ -33,7 +33,7 @@ más tarde al servir la primera consulta.
 
 | Variable                      | Oblig. | Descripción                                            |
 | ----------------------------- | :----: | ------------------------------------------------------ |
-| `IIEGDB_LIMITE_FILAS`         |   No   | Por defecto `5000`                                     |
+| `IIEGDB_ROW_LIMIT`            |   No   | Por defecto `5000`                                     |
 | `IIEGDB_STATEMENT_TIMEOUT_MS` |   No   | Por defecto `15000`                                    |
 | `IIEGDB_RATE_LIMIT`           |   No   | Consultas por minuto y por token; por defecto `60`     |
 | `IIEGDB_POOL_SIZE`            |   No   | **Por pipeline.** Por defecto `2`                      |

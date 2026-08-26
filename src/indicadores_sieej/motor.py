@@ -71,7 +71,7 @@ def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
     try:
         with conexiones.pool(ind.pipeline, cfg).connect() as conn:
             conn = conn.execution_options(postgresql_readonly=True)
-            filas = [dict(fila) for fila in conn.execute(_acotada(ind, cfg.limite_filas), binds).mappings()]
+            filas = [dict(fila) for fila in conn.execute(_acotada(ind, cfg.row_limit), binds).mappings()]
     except SQLAlchemyError as exc:
         # Al cliente va genérico y con una referencia; el detalle, al log — y sin el
         # sql, que es lo único que nunca sale del servidor. Por eso no se registra la
@@ -82,10 +82,9 @@ def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
 
     # El límite falla ruidoso: devolver 5000 filas de una serie de 40000 sin decirlo
     # haría que el agente reportara como completa una serie cortada.
-    if len(filas) > cfg.limite_filas:
+    if len(filas) > cfg.row_limit:
         raise RowLimitExceeded(
-            f"{ind.id}: la consulta excede {cfg.limite_filas} filas; "
-            f"acota con {sorted(p.nombre for p in ind.parametros)}"
+            f"{ind.id}: la consulta excede {cfg.row_limit} filas; acota con {sorted(p.nombre for p in ind.parametros)}"
         )
 
     sobre = {

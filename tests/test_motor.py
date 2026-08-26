@@ -68,7 +68,7 @@ def test_los_valores_no_entran_al_texto_del_sql(conexion):
 
 def test_la_consulta_va_envuelta_y_acotada(conexion):
     falsa = conexion()
-    motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg(limite_filas=10))
+    motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg(row_limit=10))
     consulta = str(falsa.consulta)
     assert consulta.startswith("SELECT * FROM (")
     assert consulta.endswith(") _banco LIMIT 11")

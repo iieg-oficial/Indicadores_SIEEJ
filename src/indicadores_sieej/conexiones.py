@@ -37,7 +37,7 @@ def dsn(pipeline: str, cfg: Optional[Settings] = None) -> Optional[URL | str]:
     if propio:
         return propio
 
-    if not cfg.habilita(pipeline):
+    if not cfg.serves(pipeline):
         return None
 
     # URL.create escapa la contraseña por su cuenta: por eso no hace falta

@@ -12,12 +12,12 @@ from typing import Literal, Optional
 from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-TODOS = "*"
+ALL = "*"
 
 
 class Settings(BaseSettings):
     """Las variables `IIEGDB_*`. Los `IIEGDB_DSN_<PIPELINE>` no son campos: los lee
-    conexiones.py del entorno, porque su nombre depende del catálogo."""
+    connections.py del entorno, porque su nombre depende del catálogo."""
 
     model_config = SettingsConfigDict(env_prefix="IIEGDB_", env_file=".env", extra="ignore")
 
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     base_url: str
 
     # --- Límites y operación ---
-    limite_filas: int = 5000
+    row_limit: int = 5000
     statement_timeout_ms: int = 15000
     rate_limit: int = 60
 
@@ -54,31 +54,31 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     @model_validator(mode="after")
-    def _exigir_lo_del_modo_de_auth(self) -> "Settings":
-        faltantes = []
+    def _require_auth_mode_fields(self) -> "Settings":
+        missing = []
         if self.auth_mode == "static" and not self.static_tokens:
-            faltantes = ["IIEGDB_STATIC_TOKENS"]
+            missing = ["IIEGDB_STATIC_TOKENS"]
         elif self.auth_mode == "jwt":
-            faltantes = [
-                nombre
-                for nombre, valor in (
+            missing = [
+                name
+                for name, value in (
                     ("IIEGDB_JWKS_URI", self.jwks_uri),
                     ("IIEGDB_ISSUER", self.issuer),
                     ("IIEGDB_AUDIENCE", self.audience),
                 )
-                if not valor
+                if not value
             ]
-        if faltantes:
-            raise ValueError(f"con IIEGDB_AUTH_MODE={self.auth_mode} falta {', '.join(faltantes)}")
+        if missing:
+            raise ValueError(f"con IIEGDB_AUTH_MODE={self.auth_mode} falta {', '.join(missing)}")
         return self
 
-    def habilita(self, pipeline: str) -> bool:
+    def serves(self, pipeline: str) -> bool:
         """Si este despliegue sirve ese pipeline desde el servidor por defecto."""
-        return self.pipelines.strip() == TODOS or pipeline in self.pipelines_habilitados
+        return self.pipelines.strip() == ALL or pipeline in self.enabled_pipelines
 
     @property
-    def pipelines_habilitados(self) -> list[str]:
-        if self.pipelines.strip() == TODOS:
+    def enabled_pipelines(self) -> list[str]:
+        if self.pipelines.strip() == ALL:
             return []
         return [p.strip() for p in self.pipelines.split(",") if p.strip()]
 
