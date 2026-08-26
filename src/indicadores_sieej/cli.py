@@ -44,7 +44,7 @@ def _validate() -> int:
 
 
 def _migrate() -> int:
-    """Aplica el esquema del registro de tokens. **No corre al arrancar el servidor.**
+    """Aplica el esquema del registro de API keys. **No corre al arrancar el servidor.**
 
     Es deliberado, y es la convención de ETL-SIEEJ: el esquema se aplica a mano en el
     despliegue, no como efecto secundario de levantar el servicio. Así el rol del
@@ -59,7 +59,7 @@ def _migrate() -> int:
         # Sin la excepción completa: el texto de un error de conexión trae el DSN.
         print(f"no se pudo migrar el registro: {type(exc).__name__}", file=sys.stderr)
         return 1
-    print("registro de tokens al día", file=sys.stderr)
+    print("registro de API keys al día", file=sys.stderr)
     return 0
 
 
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("validar", help="Valida el catálogo; sale con código distinto de cero si falla")
 
-    sub.add_parser("migrar", help="Aplica el esquema del registro de tokens")
+    sub.add_parser("migrar", help="Aplica el esquema del registro de API keys")
 
     args = parser.parse_args(argv)
 

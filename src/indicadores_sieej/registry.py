@@ -1,4 +1,4 @@
-"""El registro de tokens: modelo, conexión de escritura y migraciones.
+"""El registro de API keys: modelo, conexión de escritura y migraciones.
 
 **Es la única ruta de escritura del proyecto.** Todo lo demás lee: el catálogo del disco,
 la configuración del entorno y las 33 bases del ETL. Sobre esas últimas se sigue sin
@@ -46,30 +46,30 @@ class Base(DeclarativeBase):
     pass
 
 
-class Token(Base):
-    """Un token emitido. El token en claro no está aquí: solo su sha256.
+class ApiKey(Base):
+    """Una API key emitida. La key en claro no está aquí: solo su sha256.
 
     Los `comment=` no son documentación de cortesía — SQLAlchemy los emite como
     `COMMENT ON`, y son la única descripción que tiene un operador frente a un `psql`
     sin este repositorio a la mano. Es la norma más fuerte de ETL-SIEEJ.
     """
 
-    __tablename__ = "tokens"
+    __tablename__ = "api_keys"
     __table_args__ = (
         # Sin normalizar, `A@b.mx` y `a@b.mx` son filas distintas y el índice de abajo
-        # deja de significar "un token por cuenta". Se normaliza al escribir y la base
+        # deja de significar "una API key por cuenta". Se normaliza al escribir y la base
         # rechaza el bypass.
-        CheckConstraint("correo = lower(btrim(correo))", name="ck_tokens_correo_normalizado"),
-        # Esto es lo que **realmente** impone un token activo por correo. Ordenar el
+        CheckConstraint("correo = lower(btrim(correo))", name="ck_api_keys_correo_normalizado"),
+        # Esto es lo que **realmente** impone una API key activa por correo. Ordenar el
         # UPDATE antes del INSERT no basta: bajo READ COMMITTED la segunda transacción se
         # desbloquea, ve la fila ya revocada, actualiza cero filas e inserta igual.
         Index(
-            "uq_tokens_correo_activo",
+            "uq_api_keys_correo_activo",
             "correo",
             unique=True,
             postgresql_where=text("revoked_at IS NULL"),
         ),
-        {"comment": "Tokens de acceso al banco de indicadores, emitidos por autoservicio en POST /v1/tokens."},
+        {"comment": "API keys de acceso al banco de indicadores, emitidas por autoservicio en POST /v1/api-keys."},
     )
 
     id: Mapped[UUID] = mapped_column(
@@ -87,22 +87,22 @@ class Token(Base):
             "Hoy solo es clave de unicidad: no está verificado."
         ),
     )
-    token_hash: Mapped[str] = mapped_column(
+    key_hash: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
         unique=True,
-        comment="sha256 hexadecimal del token. El token en claro no se almacena en ninguna parte.",
+        comment="sha256 hexadecimal de la API key. La key en claro no se almacena en ninguna parte.",
     )
     prefijo: Mapped[str] = mapped_column(
         Text,
         nullable=False,
-        comment="Primeros caracteres del token, sin valor secreto. Permite identificarlo en soporte sin conocerlo.",
+        comment="Primeros caracteres de la API key, sin valor secreto. Permite identificarla en soporte sin conocerla.",
     )
     scopes: Mapped[list[str]] = mapped_column(
         ARRAY(Text),
         nullable=False,
         server_default=text("ARRAY['indicadores:read']"),
-        comment="Permisos del token. Los asigna el servidor; nunca se aceptan desde la petición.",
+        comment="Permisos de la API key. Los asigna el servidor; nunca se aceptan desde la petición.",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -121,7 +121,7 @@ class Token(Base):
     )
     revoked_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
-        comment="Cuándo se revocó, o NULL si sigue activo. Reemitir para el mismo correo revoca el anterior.",
+        comment="Cuándo se revocó, o NULL si sigue activa. Rotar para el mismo correo revoca la anterior.",
     )
 
 
@@ -133,7 +133,7 @@ def dsn(cfg: Optional[Settings] = None) -> str:
     """El DSN del registro. Falla ruidoso si el despliegue no lo configuró."""
     cfg = cfg or settings()
     if not cfg.registry_dsn:
-        raise RegistryUnavailable("el registro de tokens no está configurado en este despliegue")
+        raise RegistryUnavailable("el registro de API keys no está configurado en este despliegue")
     return cfg.registry_dsn.get_secret_value()
 
 

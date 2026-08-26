@@ -1,4 +1,4 @@
-"""El registro de tokens: modelo, migraciones y conexión de escritura. Sin base de datos.
+"""El registro de API keys: modelo, migraciones y conexión de escritura. Sin base de datos.
 
 La pieza que hace posible probar el esquema sin PostgreSQL es el **modo offline** de
 Alembic: genera el DDL sin conectarse, así que la revisión, `env.py` y el modelo se
@@ -20,7 +20,7 @@ DSN = "postgresql://registro:x@localhost:5432/registro"
 
 
 def registry_cfg(**overrides):
-    return _cfg(auth_mode="registro", registry_dsn=DSN, **overrides)
+    return _cfg(auth_mode="api_key", registry_dsn=DSN, **overrides)
 
 
 @pytest.fixture(autouse=True)
@@ -42,49 +42,51 @@ def ddl(capsys) -> str:
 
 
 def test_the_migration_creates_the_table(ddl):
-    assert "CREATE TABLE tokens" in ddl
+    assert "CREATE TABLE api_keys" in ddl
     assert "CREATE TABLE alembic_version" in ddl
 
 
-def test_the_partial_unique_index_enforces_one_token_per_account(ddl):
-    """Sin él, dos emisiones concurrentes para el mismo correo dejan dos tokens vivos:
+def test_the_partial_unique_index_enforces_one_key_per_account(ddl):
+    """Sin él, dos emisiones concurrentes para el mismo correo dejan dos keys vivas:
     ordenar el UPDATE antes del INSERT no cierra la carrera."""
-    assert "CREATE UNIQUE INDEX uq_tokens_correo_activo ON tokens (correo) WHERE revoked_at IS NULL" in ddl
+    assert "CREATE UNIQUE INDEX uq_api_keys_correo_activo ON api_keys (correo) WHERE revoked_at IS NULL" in ddl
 
 
 def test_the_email_is_normalized_by_the_database(ddl):
     """Sin el CHECK, `A@b.mx` y `a@b.mx` son filas distintas y el índice de arriba deja
-    de significar «un token por cuenta»."""
+    de significar «una API key por cuenta»."""
     assert "CHECK (correo = lower(btrim(correo)))" in ddl
 
 
-def test_the_token_itself_is_never_stored(ddl):
-    assert "token_hash VARCHAR(64) NOT NULL" in ddl
-    assert "\n    token " not in ddl, "no puede existir una columna con el token en claro"
+def test_the_key_itself_is_never_stored(ddl):
+    """Solo el sha256. Perder la key significa rotarla, no recuperarla."""
+    assert "key_hash VARCHAR(64) NOT NULL" in ddl
+    for plaintext in ("\n    api_key ", "\n    key ", "\n    token "):
+        assert plaintext not in ddl, f"no puede existir una columna con la key en claro: {plaintext.strip()}"
 
 
 def test_every_column_is_commented(ddl):
     """La norma más fuerte de ETL-SIEEJ: los comentarios son la única documentación que
     tiene un operador frente a un psql sin este repositorio a la mano."""
-    for column in registry.Token.__table__.columns:
-        assert f"COMMENT ON COLUMN tokens.{column.name} IS" in ddl, f"falta el comentario de {column.name}"
-    assert "COMMENT ON TABLE tokens IS" in ddl
+    for column in registry.ApiKey.__table__.columns:
+        assert f"COMMENT ON COLUMN api_keys.{column.name} IS" in ddl, f"falta el comentario de {column.name}"
+    assert "COMMENT ON TABLE api_keys IS" in ddl
 
 
 def test_the_model_and_the_migration_do_not_drift(ddl):
     """El riesgo clásico de Alembic: el modelo cambia y la revisión se queda atrás.
     Los comentarios los emite la revisión, así que compararlos contra las columnas del
     modelo detecta que una sobra o falta en cualquiera de los dos lados."""
-    commented = {line.split("tokens.")[1].split(" ")[0] for line in ddl.splitlines() if "COMMENT ON COLUMN" in line}
-    assert commented == {column.name for column in registry.Token.__table__.columns}
+    commented = {line.split("api_keys.")[1].split(" ")[0] for line in ddl.splitlines() if "COMMENT ON COLUMN" in line}
+    assert commented == {column.name for column in registry.ApiKey.__table__.columns}
 
 
 def test_the_downgrade_undoes_the_upgrade(capsys):
     """Una revisión sin vuelta atrás es una revisión que nadie se atreve a aplicar."""
-    command.downgrade(registry.alembic_config(registry_cfg()), "0001_tokens:base", sql=True)
+    command.downgrade(registry.alembic_config(registry_cfg()), "0001_api_keys:base", sql=True)
     ddl = capsys.readouterr().out
-    assert "DROP INDEX uq_tokens_correo_activo" in ddl
-    assert "DROP TABLE tokens" in ddl
+    assert "DROP INDEX uq_api_keys_correo_activo" in ddl
+    assert "DROP TABLE api_keys" in ddl
 
 
 # --- La configuración ---

@@ -33,10 +33,11 @@ class Settings(BaseSettings):
     pipelines: str
 
     # --- Autenticación ---
-    # `registro` es el modo de producción: tokens de autoservicio verificados contra la
+    # `api_key` es el modo de producción: API keys de autoservicio verificadas contra la
     # base propia del servicio. `static` es para desarrollo; `jwt`, para el día que haya
-    # un proveedor de identidad institucional. Decidido en #29.
-    auth_mode: Literal["static", "jwt", "registro"]
+    # un proveedor de identidad institucional. Los tres nombran **qué credencial** se
+    # verifica, no dónde se guarda. Decidido en #29.
+    auth_mode: Literal["static", "jwt", "api_key"]
     static_tokens: Optional[SecretStr] = None
     jwks_uri: Optional[str] = None
     issuer: Optional[str] = None
@@ -48,10 +49,10 @@ class Settings(BaseSettings):
     # permisos de escritura. Eso rompería la garantía de solo lectura en todas a la vez.
     registry_dsn: Optional[SecretStr] = None
 
-    # Las tres ventanas del registro de tokens. Ver docs/tokens.md.
-    token_ttl_days: int = 90
-    token_touch_s: int = 3600
-    token_cache_ttl_s: int = 60
+    # Las tres ventanas del registro de API keys. Ver docs/api-keys.md.
+    api_key_ttl_days: int = 90
+    api_key_touch_s: int = 3600
+    api_key_cache_ttl_s: int = 60
 
     # --- Límites y operación ---
     row_limit: int = 5000
@@ -81,25 +82,25 @@ class Settings(BaseSettings):
                 )
                 if not value
             ]
-        elif self.auth_mode == "registro" and not self.registry_dsn:
+        elif self.auth_mode == "api_key" and not self.registry_dsn:
             missing = ["IIEGDB_REGISTRY_DSN"]
         if missing:
             raise ValueError(f"con IIEGDB_AUTH_MODE={self.auth_mode} falta {', '.join(missing)}")
         return self
 
     @model_validator(mode="after")
-    def _coherent_token_windows(self) -> "Settings":
+    def _coherent_api_key_windows(self) -> "Settings":
         """El orden de las tres ventanas es lo que hace correcta la caducidad por desuso.
 
-        Un token en uso refresca su `last_used_at` porque el caché expira antes que la
+        Una key en uso refresca su `last_used_at` porque el caché expira antes que la
         ventana de refresco, y esa antes que la de caducidad. Invertir el orden —subir el
-        caché "para bajar carga", por ejemplo— haría que un token en uso continuo caducara
-        solo, y tardaría noventa días en notarse. Por eso se falla al arrancar.
+        caché "para bajar carga", por ejemplo— haría que una key en uso continuo caducara
+        sola, y tardaría noventa días en notarse. Por eso se falla al arrancar.
         """
-        if not self.token_cache_ttl_s < self.token_touch_s < self.token_ttl_days * 86400:
+        if not self.api_key_cache_ttl_s < self.api_key_touch_s < self.api_key_ttl_days * 86400:
             raise ValueError(
                 "las ventanas del registro deben cumplir "
-                "IIEGDB_TOKEN_CACHE_TTL_S < IIEGDB_TOKEN_TOUCH_S < IIEGDB_TOKEN_TTL_DAYS en segundos"
+                "IIEGDB_API_KEY_CACHE_TTL_S < IIEGDB_API_KEY_TOUCH_S < IIEGDB_API_KEY_TTL_DAYS en segundos"
             )
         return self
 

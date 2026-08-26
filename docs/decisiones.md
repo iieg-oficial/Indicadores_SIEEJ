@@ -13,7 +13,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                 |
 | D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
 | D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
-| D10 | Registro de tokens     | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
+| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -31,8 +31,12 @@ todas las rutas registradas y verifica que ninguna salvo `/health` responde sin 
 
 ## Por qué el registro vive en su propia base (D10)
 
-La API se decidió pública y de autoservicio: cualquiera pide un token con su correo y lo obtiene.
-Eso obliga a **persistir** los tokens emitidos, y este servicio nunca había escrito en ningún lado.
+La API se decidió pública y de autoservicio: cualquiera pide una **API key** con su correo y la
+obtiene. No es un token: es una credencial larga, opaca, una por consumidor y sin flujo de refresco —
+un PAT de GitHub, no un access token. Lo que viaja en `Authorization: Bearer` sí es un bearer token,
+que es vocabulario de HTTP y la única forma que acepta MCP.
+
+Eso obliga a **persistir** las keys emitidas, y este servicio nunca había escrito en ningún lado.
 
 La base es **suya**, no una de las 33 del ETL. Sobre aquellas se sigue sin escribir jamás: la
 garantía de solo lectura no admite una excepción "pequeña", porque el rol es el mismo para las 33.

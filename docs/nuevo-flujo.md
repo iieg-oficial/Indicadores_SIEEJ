@@ -76,9 +76,9 @@ El indicador no está dado de alta hasta que las tres superficies lo ven:
 | Devuelve filas               | `GET /v1/indicadores/<id>/datos?cve_geo=14039` | `consultar_indicador` |
 
 ```bash
-curl -H "Authorization: Bearer $TOKEN" "$IIEGDB_BASE_URL/v1/indicadores?tema=empleo"
-curl -H "Authorization: Bearer $TOKEN" "$IIEGDB_BASE_URL/v1/indicadores/<id>"
-curl -H "Authorization: Bearer $TOKEN" "$IIEGDB_BASE_URL/v1/indicadores/<id>/datos?cve_geo=14039"
+curl -H "Authorization: Bearer $API_KEY" "$IIEGDB_BASE_URL/v1/indicadores?tema=empleo"
+curl -H "Authorization: Bearer $API_KEY" "$IIEGDB_BASE_URL/v1/indicadores/<id>"
+curl -H "Authorization: Bearer $API_KEY" "$IIEGDB_BASE_URL/v1/indicadores/<id>/datos?cve_geo=14039"
 ```
 
 Las filas deben traer las cinco columnas del [contrato de salida](contrato-salida.md), y

@@ -1,4 +1,4 @@
-"""Entorno de Alembic para el registro de tokens.
+"""Entorno de Alembic para el registro de API keys.
 
 El DSN no se lee de `alembic.ini` sino de la configuración del servicio, que lo saca de
 `IIEGDB_REGISTRY_DSN`. Una sola fuente de verdad, y ningún secreto versionado.

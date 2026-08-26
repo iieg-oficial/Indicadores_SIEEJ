@@ -75,11 +75,11 @@ class InsufficientScope(BankError):
 
 
 class RegistryUnavailable(BankError):
-    """El registro de tokens no responde, o no está configurado.
+    """El registro de API keys no responde, o no está configurado.
 
-    **Nunca 401.** Un 401 le diría a cada consumidor que su token es malo y los mandaría
-    a todos a re-registrarse, convirtiendo un parpadeo del registro en una estampida
-    contra el registro. 503 dice lo que de verdad pasa: no es el token, es el servidor.
+    **Nunca 401.** Un 401 le diría a cada consumidor que su credencial es mala y los
+    mandaría a todos a pedir una nueva, convirtiendo un parpadeo del registro en una
+    estampida contra el registro. 503 dice lo que pasa: no es la key, es el servidor.
     """
 
     http = 503

@@ -1,9 +1,9 @@
-"""registro de tokens
+"""registro de API keys
 
-Emisión de autoservicio: cualquiera pide un token con su correo y lo obtiene. Un token
-activo por correo, y caducidad por desuso en vez de por antigüedad. Decidido en #29.
+Emisión de autoservicio: cualquiera pide una API key con su correo y la obtiene. Una key
+activa por correo, y caducidad por desuso en vez de por antigüedad. Decidido en #29.
 
-Revision ID: 0001_tokens
+Revision ID: 0001_api_keys
 Revises:
 """
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "0001_tokens"
+revision: str = "0001_api_keys"
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table(
-        "tokens",
+        "api_keys",
         sa.Column(
             "id",
             postgresql.UUID(as_uuid=True),
@@ -41,17 +41,17 @@ def upgrade() -> None:
             ),
         ),
         sa.Column(
-            "token_hash",
+            "key_hash",
             sa.String(length=64),
             nullable=False,
-            comment="sha256 hexadecimal del token. El token en claro no se almacena en ninguna parte.",
+            comment="sha256 hexadecimal de la API key. La key en claro no se almacena en ninguna parte.",
         ),
         sa.Column(
             "prefijo",
             sa.Text(),
             nullable=False,
             comment=(
-                "Primeros caracteres del token, sin valor secreto. Permite identificarlo en soporte sin conocerlo."
+                "Primeros caracteres de la API key, sin valor secreto. Permite identificarla en soporte sin conocerla."
             ),
         ),
         sa.Column(
@@ -59,7 +59,7 @@ def upgrade() -> None:
             postgresql.ARRAY(sa.Text()),
             server_default=sa.text("ARRAY['indicadores:read']"),
             nullable=False,
-            comment="Permisos del token. Los asigna el servidor; nunca se aceptan desde la petición.",
+            comment="Permisos de la API key. Los asigna el servidor; nunca se aceptan desde la petición.",
         ),
         sa.Column(
             "created_at",
@@ -82,21 +82,21 @@ def upgrade() -> None:
             "revoked_at",
             sa.DateTime(timezone=True),
             nullable=True,
-            comment="Cuándo se revocó, o NULL si sigue activo. Reemitir para el mismo correo revoca el anterior.",
+            comment="Cuándo se revocó, o NULL si sigue activa. Rotar para el mismo correo revoca la anterior.",
         ),
         # Sin normalizar, `A@b.mx` y `a@b.mx` son filas distintas y el índice parcial de
-        # abajo deja de significar "un token por cuenta".
-        sa.CheckConstraint("correo = lower(btrim(correo))", name="ck_tokens_correo_normalizado"),
+        # abajo deja de significar "una API key por cuenta".
+        sa.CheckConstraint("correo = lower(btrim(correo))", name="ck_api_keys_correo_normalizado"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("token_hash"),
-        comment="Tokens de acceso al banco de indicadores, emitidos por autoservicio en POST /v1/tokens.",
+        sa.UniqueConstraint("key_hash"),
+        comment="API keys de acceso al banco de indicadores, emitidas por autoservicio en POST /v1/api-keys.",
     )
-    # Esto es lo que **realmente** impone un token activo por correo. Ordenar el UPDATE
+    # Esto es lo que **realmente** impone una API key activa por correo. Ordenar el UPDATE
     # antes del INSERT no basta: bajo READ COMMITTED la segunda transacción se desbloquea,
     # ve la fila ya revocada, actualiza cero filas e inserta igual.
     op.create_index(
-        "uq_tokens_correo_activo",
-        "tokens",
+        "uq_api_keys_correo_activo",
+        "api_keys",
         ["correo"],
         unique=True,
         postgresql_where=sa.text("revoked_at IS NULL"),
@@ -104,5 +104,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("uq_tokens_correo_activo", table_name="tokens")
-    op.drop_table("tokens")
+    op.drop_index("uq_api_keys_correo_activo", table_name="api_keys")
+    op.drop_table("api_keys")
