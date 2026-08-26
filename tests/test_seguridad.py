@@ -13,7 +13,7 @@ import logging
 import pytest
 import yaml
 
-from indicadores_sieej import connections, motor
+from indicadores_sieej import connections, engine
 from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, BankError
 
@@ -57,7 +57,7 @@ def test_la_metadata_no_lleva_sql(ind):
 @pytest.mark.parametrize("ind", INDICADORES, ids=lambda i: i.id)
 def test_el_sobre_de_respuesta_no_lleva_sql(ind, conexion):
     conexion([FILA])
-    sobre = motor.ejecutar(ind.id, cfg=_cfg())
+    sobre = engine.execute(ind.id, cfg=_cfg())
     _sin_sql(json.dumps(sobre, ensure_ascii=False, default=str), f"sobre de {ind.id}")
 
 
@@ -75,8 +75,8 @@ def test_los_errores_del_motor_no_llevan_sql(ind, conexion, monkeypatch):
 
     conexion([FILA] * 5001)
     for llamada in (
-        lambda: motor.ejecutar(ind.id, cfg=_cfg(), parametro_inventado="x"),
-        lambda: motor.ejecutar(ind.id, cfg=_cfg()),  # excede el límite
+        lambda: engine.execute(ind.id, cfg=_cfg(), parametro_inventado="x"),
+        lambda: engine.execute(ind.id, cfg=_cfg()),  # excede el límite
     ):
         with pytest.raises(BankError) as exc:
             llamada()
@@ -84,12 +84,12 @@ def test_los_errores_del_motor_no_llevan_sql(ind, conexion, monkeypatch):
 
     conexion(falla=True)
     with pytest.raises(BankError) as exc:
-        motor.ejecutar(ind.id, cfg=_cfg())
+        engine.execute(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))
 
     monkeypatch.setattr(connections, "available", lambda *a, **k: False)
     with pytest.raises(BankError) as exc:
-        motor.ejecutar(ind.id, cfg=_cfg())
+        engine.execute(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))
 
     _sin_sql("\n".join(mensajes), f"errores de {ind.id}")
@@ -117,11 +117,11 @@ def test_los_logs_no_llevan_sql(conexion, caplog):
 
     with caplog.at_level(logging.INFO):
         conexion([FILA])
-        motor.ejecutar(ind.id, cfg=_cfg())
+        engine.execute(ind.id, cfg=_cfg())
 
         conexion(falla=True)
         with pytest.raises(BankError):
-            motor.ejecutar(ind.id, cfg=_cfg())
+            engine.execute(ind.id, cfg=_cfg())
 
     _sin_sql(caplog.text, "logs INFO+")
 

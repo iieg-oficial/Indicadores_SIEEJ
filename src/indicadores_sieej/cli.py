@@ -11,7 +11,7 @@ import json
 import logging
 import sys
 
-from indicadores_sieej import motor
+from indicadores_sieej import engine
 from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, BankError
 
@@ -65,7 +65,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.comando == "describir":
             salida = get(args.id).metadata()
         else:
-            salida = motor.ejecutar(args.id, **_params(args.params))
+            salida = engine.execute(args.id, **_params(args.params))
     except BankError as exc:
         print(f"{exc}", file=sys.stderr)
         return 1

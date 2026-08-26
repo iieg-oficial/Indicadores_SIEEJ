@@ -30,7 +30,7 @@ def test_describir_no_imprime_el_sql(capsys):
 
 def test_ejecutar_devuelve_el_sobre(capsys, conexion, monkeypatch):
     conexion([FILA])
-    monkeypatch.setattr(cli.motor, "settings", lambda: _cfg())
+    monkeypatch.setattr(cli.engine, "settings", lambda: _cfg())
     assert cli.main(["ejecutar", "pobreza_municipal", "-p", "cve_geo=14039"]) == 0
     sobre = json.loads(capsys.readouterr().out)
     assert sobre["indicador"] == "pobreza_municipal"
@@ -39,7 +39,7 @@ def test_ejecutar_devuelve_el_sobre(capsys, conexion, monkeypatch):
 
 def test_ejecutar_con_parametro_no_declarado_sale_con_error(capsys, conexion, monkeypatch):
     conexion([FILA])
-    monkeypatch.setattr(cli.motor, "settings", lambda: _cfg())
+    monkeypatch.setattr(cli.engine, "settings", lambda: _cfg())
     assert cli.main(["ejecutar", "pobreza_municipal", "-p", "municipio=14039"]) == 1
     salida = capsys.readouterr()
     assert "parámetros desconocidos" in salida.err
