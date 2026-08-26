@@ -101,4 +101,4 @@ def query_indicator(id: str, parametros: Optional[dict[str, str | int | None]] =
             opcionales que se omitan no filtran.
     """
     with _surfaced():
-        return engine.execute(id, **(parametros or {}))
+        return engine.execute(id, parametros)

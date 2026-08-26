@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "describir":
             output = get(args.id).metadata()
         else:
-            output = engine.execute(args.id, **_params(args.params))
+            output = engine.execute(args.id, _params(args.params))
     except BankError as exc:
         print(f"{exc}", file=sys.stderr)
         return 1

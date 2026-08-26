@@ -3,25 +3,28 @@
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import connections, engine
+from indicadores_sieej import config, connections, engine
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
 ROW = dict.fromkeys(COLUMNS, None)
 
+# Lo mínimo que exige Settings. Se usa de dos formas: como kwargs para construirlas a
+# mano, y como variables de entorno cuando la prueba levanta el app de verdad.
+BASE = {
+    "pg_host": "h",
+    "pg_user": "u",
+    "pg_password": "p",
+    "pipelines": "*",
+    "auth_mode": "static",
+    "static_tokens": "t:c:indicadores:read",
+    "base_url": "https://x",
+}
+
 
 def cfg(**overrides) -> Settings:
     """Settings completas sin leer el entorno ni el .env del desarrollador."""
-    base = {
-        "pg_host": "h",
-        "pg_user": "u",
-        "pg_password": "p",
-        "pipelines": "*",
-        "auth_mode": "static",
-        "static_tokens": "t:c:indicadores:read",
-        "base_url": "https://x",
-    }
-    return Settings(_env_file=None, **{**base, **overrides})
+    return Settings(_env_file=None, **{**BASE, **overrides})
 
 
 class _Result:
@@ -90,3 +93,24 @@ def process_settings(monkeypatch):
     """
     monkeypatch.setattr(engine, "settings", cfg)
     return cfg()
+
+
+@pytest.fixture
+def api(monkeypatch):
+    """Cliente REST contra el app real, con su lifespan corrido y sin base de datos.
+
+    Las settings se ponen en el entorno en vez de sustituirlas: así la prueba pasa por
+    la validación de arranque, que es parte de lo que se está probando.
+    """
+    from fastapi.testclient import TestClient
+
+    from indicadores_sieej.main import create_app
+
+    for name, value in BASE.items():
+        monkeypatch.setenv(f"IIEGDB_{name.upper()}", value)
+    config.settings.cache_clear()
+    try:
+        with TestClient(create_app()) as client:
+            yield client
+    finally:
+        config.settings.cache_clear()

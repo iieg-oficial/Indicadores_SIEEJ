@@ -12,13 +12,17 @@ dependencies = [
     # DSN: con psycopg2 el prefijo `postgresql://` de docs/conexiones.md resuelve solo.
     "sqlalchemy>=2.0",
     "psycopg2-binary>=2.9",
-    # La superficie MCP. Trae su propio stack ASGI, así que no hace falta declarar
-    # starlette ni uvicorn por separado.
+    # Las dos superficies. FastMCP trae su propio stack ASGI, así que starlette no
+    # se declara aparte; el servidor que lo corre lo pone el despliegue.
     "fastmcp>=3",
+    "fastapi>=0.115",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "pytest-asyncio", "ruff", "pre-commit"]
+# httpx lo necesita el TestClient de FastAPI; llega transitivamente, pero las
+# pruebas lo importan de frente. uvicorn es para levantarlo en local: en producción
+# lo fija la imagen.
+dev = ["pytest", "pytest-asyncio", "httpx", "uvicorn", "ruff", "pre-commit"]
 
 [build-system]
 requires = ["setuptools>=68"]

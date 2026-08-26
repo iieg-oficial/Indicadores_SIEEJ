@@ -43,6 +43,8 @@ git config core.hooksPath .githooks
 cp .env.example .env      # y llena los DSN
 pytest -m "not integration"
 python -m indicadores_sieej.cli listar --tema empleo
+
+uvicorn indicadores_sieej.main:app --reload   # MCP en /mcp, REST en /v1, OpenAPI en /docs
 ```
 
 Con Docker, cuando esté disponible:

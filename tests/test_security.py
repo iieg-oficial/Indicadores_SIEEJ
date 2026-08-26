@@ -4,8 +4,8 @@ CA-4 exige que se verifique con una prueba, no con revisión manual. El barrido 
 el `sql` real de cada indicador del catálogo, así que sigue siendo válido cuando el
 catálogo crezca: no hay ninguna lista de indicadores escrita a mano.
 
-El barrido cubre el motor y la superficie MCP; cuando cierre #14 hay que extenderlo
-a las respuestas REST.
+El barrido cubre el motor y las dos superficies: lo que devuelven, lo que dicen sus
+errores y lo que queda en los logs.
 """
 
 import json
@@ -79,7 +79,7 @@ def test_the_engine_errors_carry_no_sql(ind, connection, monkeypatch):
 
     connection([ROW] * 5001)
     for call in (
-        lambda: engine.execute(ind.id, cfg=_cfg(), parametro_inventado="x"),
+        lambda: engine.execute(ind.id, {"parametro_inventado": "x"}, cfg=_cfg()),
         lambda: engine.execute(ind.id, cfg=_cfg()),  # excede el límite
     ):
         with pytest.raises(BankError) as exc:
@@ -169,3 +169,38 @@ async def test_the_mcp_errors_carry_no_sql(ind, connection, process_settings):
             messages.append(str(exc.value))
 
     _without_sql("\n".join(messages), f"errores MCP de {ind.id}")
+
+
+# --- La superficie REST ---
+
+
+@pytest.mark.parametrize("ind", INDICATORS, ids=lambda i: i.id)
+def test_the_rest_responses_carry_no_sql(ind, api, connection, process_settings):
+    connection([ROW])
+    for path in (
+        "/v1/indicadores",
+        f"/v1/indicadores/{ind.id}",
+        f"/v1/indicadores/{ind.id}/datos",
+    ):
+        _without_sql(api.get(path).text, f"REST {path}")
+
+
+@pytest.mark.parametrize("ind", INDICATORS, ids=lambda i: i.id)
+def test_the_rest_errors_carry_no_sql(ind, api, connection, process_settings):
+    connection([ROW] * 5001)
+    responses = [
+        api.get("/v1/indicadores/no_existe"),
+        api.get(f"/v1/indicadores/{ind.id}/datos", params={"parametro_inventado": "x"}),
+        api.get(f"/v1/indicadores/{ind.id}/datos"),  # excede el límite
+    ]
+    connection(fails=True)
+    responses.append(api.get(f"/v1/indicadores/{ind.id}/datos"))
+
+    assert [r.status_code for r in responses] == [404, 400, 413, 502]
+    _without_sql("\n".join(r.text for r in responses), f"errores REST de {ind.id}")
+
+
+def test_the_openapi_carries_no_sql(api):
+    """El esquema publicado describe las rutas, no el catálogo — pero es el lugar donde
+    un `example` copiado a mano metería un sql sin que nadie lo note."""
+    _without_sql(api.get("/openapi.json").text, "openapi")
