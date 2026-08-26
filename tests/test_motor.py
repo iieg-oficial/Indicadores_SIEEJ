@@ -6,11 +6,11 @@ import pytest
 
 from indicadores_sieej import conexiones, motor
 from indicadores_sieej.catalogo import COLUMNAS, obtener
-from indicadores_sieej.errores import (
-    ErrorDeConsulta,
-    LimiteExcedido,
-    ParametrosInvalidos,
-    PipelineNoDisponible,
+from indicadores_sieej.errors import (
+    QueryError,
+    RowLimitExceeded,
+    InvalidParameters,
+    PipelineUnavailable,
 )
 
 from .conftest import FILA, cfg as _cfg
@@ -27,13 +27,13 @@ def test_coacciona_al_tipo_declarado(conexion):
 
 def test_valor_no_coaccionable(conexion):
     conexion()
-    with pytest.raises(ParametrosInvalidos, match="no es un int válido"):
+    with pytest.raises(InvalidParameters, match="no es un int válido"):
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg(), anio_min="dos mil")
 
 
 def test_parametro_no_declarado(conexion):
     conexion()
-    with pytest.raises(ParametrosInvalidos) as exc:
+    with pytest.raises(InvalidParameters) as exc:
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg(), municipio="14039")
     assert str(exc.value) == "incidencia_delictiva_municipal: parámetros desconocidos ['municipio']"
 
@@ -45,7 +45,7 @@ def test_parametro_requerido_ausente(conexion, monkeypatch):
     requerido.parametros[0].requerido = True
     monkeypatch.setattr(motor, "obtener", lambda _: requerido)
     conexion()
-    with pytest.raises(ParametrosInvalidos, match="falta el parámetro requerido 'cve_geo'"):
+    with pytest.raises(InvalidParameters, match="falta el parámetro requerido 'cve_geo'"):
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
 
 
@@ -85,7 +85,7 @@ def test_la_transaccion_es_de_solo_lectura(conexion):
 
 def test_el_limite_falla_ruidoso(conexion):
     conexion([FILA] * 5001)
-    with pytest.raises(LimiteExcedido) as exc:
+    with pytest.raises(RowLimitExceeded) as exc:
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
     assert str(exc.value) == (
         "incidencia_delictiva_municipal: la consulta excede 5000 filas; "
@@ -116,7 +116,7 @@ def test_el_sobre_lleva_metadata_parametros_y_notas(conexion):
 
 def test_pipeline_sin_dsn(monkeypatch):
     monkeypatch.setattr(conexiones, "disponible", lambda *a, **k: False)
-    with pytest.raises(PipelineNoDisponible) as exc:
+    with pytest.raises(PipelineUnavailable) as exc:
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
     assert str(exc.value) == "incidencia_delictiva_municipal: indicador no disponible en este despliegue"
 
@@ -124,6 +124,6 @@ def test_pipeline_sin_dsn(monkeypatch):
 def test_base_caida_no_filtra_nada(conexion, caplog):
     conexion(falla=True)
     with caplog.at_level(logging.INFO):
-        with pytest.raises(ErrorDeConsulta, match="error al consultar la base"):
+        with pytest.raises(QueryError, match="error al consultar la base"):
             motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
     assert "referencia:" in caplog.text or "consulta fallida" in caplog.text

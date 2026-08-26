@@ -16,7 +16,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.engine import URL
 
 from indicadores_sieej.config import Settings, settings
-from indicadores_sieej.errores import PipelineNoDisponible
+from indicadores_sieej.errors import PipelineUnavailable
 
 # Pools abiertos, uno por pipeline. Es un dict y no un lru_cache porque /ready
 # necesita saber cuáles están abiertos sin abrir ninguno.
@@ -69,7 +69,7 @@ def pool(pipeline: str, cfg: Optional[Settings] = None) -> Engine:
         if pipeline not in _POOLS:
             destino = dsn(pipeline, cfg)
             if destino is None:
-                raise PipelineNoDisponible(f"el pipeline '{pipeline}' no tiene DSN en este despliegue")
+                raise PipelineUnavailable(f"el pipeline '{pipeline}' no tiene DSN en este despliegue")
             _POOLS[pipeline] = create_engine(
                 destino,
                 pool_size=cfg.pool_size,

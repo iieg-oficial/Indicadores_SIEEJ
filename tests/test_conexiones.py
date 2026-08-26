@@ -7,7 +7,7 @@ verificar el dimensionamiento sin una base viva.
 import pytest
 
 from indicadores_sieej import conexiones
-from indicadores_sieej.errores import PipelineNoDisponible
+from indicadores_sieej.errors import PipelineUnavailable
 
 from .conftest import cfg as _cfg
 
@@ -48,7 +48,7 @@ def test_un_pipeline_fuera_de_la_lista_no_tiene_dsn(monkeypatch):
     settings = _cfg(pipelines="enoe_microdatos")
     assert conexiones.dsn("ilmm", settings) is None
     assert not conexiones.disponible("ilmm", settings)
-    with pytest.raises(PipelineNoDisponible):
+    with pytest.raises(PipelineUnavailable):
         conexiones.pool("ilmm", settings)
 
 

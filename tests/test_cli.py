@@ -9,7 +9,7 @@ import json
 import pytest
 
 from indicadores_sieej import cli
-from indicadores_sieej.errores import CatalogoInvalido
+from indicadores_sieej.errors import InvalidCatalog
 
 from .conftest import FILA, cfg as _cfg
 
@@ -58,7 +58,7 @@ def test_validar_sale_con_cero_en_un_catalogo_sano(capsys):
 
 def test_validar_sale_con_error_y_nombra_el_archivo(capsys, monkeypatch):
     def _revienta():
-        raise CatalogoInvalido("catalogo/pobreza/roto.yaml: campo desconocido 'inventado'")
+        raise InvalidCatalog("catalogo/pobreza/roto.yaml: campo desconocido 'inventado'")
 
     monkeypatch.setattr(cli, "cargar", _revienta)
     assert cli.main(["validar"]) == 1

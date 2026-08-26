@@ -15,7 +15,7 @@ import yaml
 
 from indicadores_sieej import conexiones, motor
 from indicadores_sieej.catalogo import CATALOGO, cargar, listar, obtener
-from indicadores_sieej.errores import CatalogoInvalido, ErrorDelBanco
+from indicadores_sieej.errors import InvalidCatalog, BankError
 
 from .conftest import FILA, cfg as _cfg
 
@@ -78,17 +78,17 @@ def test_los_errores_del_motor_no_llevan_sql(ind, conexion, monkeypatch):
         lambda: motor.ejecutar(ind.id, cfg=_cfg(), parametro_inventado="x"),
         lambda: motor.ejecutar(ind.id, cfg=_cfg()),  # excede el límite
     ):
-        with pytest.raises(ErrorDelBanco) as exc:
+        with pytest.raises(BankError) as exc:
             llamada()
         mensajes.append(str(exc.value))
 
     conexion(falla=True)
-    with pytest.raises(ErrorDelBanco) as exc:
+    with pytest.raises(BankError) as exc:
         motor.ejecutar(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))
 
     monkeypatch.setattr(conexiones, "disponible", lambda *a, **k: False)
-    with pytest.raises(ErrorDelBanco) as exc:
+    with pytest.raises(BankError) as exc:
         motor.ejecutar(ind.id, cfg=_cfg())
     mensajes.append(str(exc.value))
 
@@ -105,7 +105,7 @@ def test_los_errores_del_catalogo_no_llevan_sql(ind, tmp_path):
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / f"{ind.id}.yaml").write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
 
-    with pytest.raises(CatalogoInvalido) as exc:
+    with pytest.raises(InvalidCatalog) as exc:
         cargar(tmp_path)
     _sin_sql(str(exc.value), f"catálogo inválido de {ind.id}")
 
@@ -120,7 +120,7 @@ def test_los_logs_no_llevan_sql(conexion, caplog):
         motor.ejecutar(ind.id, cfg=_cfg())
 
         conexion(falla=True)
-        with pytest.raises(ErrorDelBanco):
+        with pytest.raises(BankError):
             motor.ejecutar(ind.id, cfg=_cfg())
 
     _sin_sql(caplog.text, "logs INFO+")

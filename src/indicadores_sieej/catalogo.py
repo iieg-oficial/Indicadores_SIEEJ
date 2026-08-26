@@ -15,7 +15,7 @@ from typing import Optional
 import yaml
 from pydantic import ValidationError
 
-from indicadores_sieej.errores import CatalogoInvalido, IndicadorNoExiste
+from indicadores_sieej.errors import InvalidCatalog, IndicatorNotFound
 from indicadores_sieej.models import Indicator
 
 # El catálogo vive en la raíz del repositorio, no junto al módulo como en el ETL.
@@ -48,13 +48,13 @@ def _leer(ruta: Path) -> Indicator:
     try:
         datos = yaml.safe_load(ruta.read_text(encoding="utf-8"))
     except yaml.YAMLError:
-        raise CatalogoInvalido(f"{ruta}: el YAML está mal formado") from None
+        raise InvalidCatalog(f"{ruta}: el YAML está mal formado") from None
     if not isinstance(datos, dict):
-        raise CatalogoInvalido(f"{ruta}: el YAML no describe un indicador")
+        raise InvalidCatalog(f"{ruta}: el YAML no describe un indicador")
     try:
         return Indicator(**datos)
     except ValidationError as exc:
-        raise CatalogoInvalido(f"{ruta}: {_falla(exc)}") from None
+        raise InvalidCatalog(f"{ruta}: {_falla(exc)}") from None
 
 
 def _validar(ind: Indicator, ruta: Path) -> None:
@@ -65,22 +65,22 @@ def _validar(ind: Indicator, ruta: Path) -> None:
     arrancar; sus indicadores responden 503. Ver docs/conexiones.md.
     """
     if ruta.stem != ind.id:
-        raise CatalogoInvalido(f"{ruta}: el id no coincide con el nombre del archivo")
+        raise InvalidCatalog(f"{ruta}: el id no coincide con el nombre del archivo")
 
     if ruta.parent.name != ind.tema:
-        raise CatalogoInvalido(f"{ruta}: el tema no coincide con la carpeta")
+        raise InvalidCatalog(f"{ruta}: el tema no coincide con la carpeta")
 
     if not ind.sql.lstrip().upper().startswith(("SELECT", "WITH")):
-        raise CatalogoInvalido(f"{ruta}: el sql debe empezar con SELECT o WITH")
+        raise InvalidCatalog(f"{ruta}: el sql debe empezar con SELECT o WITH")
 
     faltantes = [col for col in COLUMNAS if f"AS {col}" not in ind.sql]
     if faltantes:
-        raise CatalogoInvalido(f"{ruta}: el sql no proyecta las columnas {faltantes}")
+        raise InvalidCatalog(f"{ruta}: el sql no proyecta las columnas {faltantes}")
 
     declarados = {p.nombre for p in ind.parametros}
     usados = set(BINDS.findall(ind.sql))
     if declarados != usados:
-        raise CatalogoInvalido(
+        raise InvalidCatalog(
             f"{ruta}: desajuste entre parametros y binds del sql "
             f"(declarados sin usar: {sorted(declarados - usados)}, "
             f"usados sin declarar: {sorted(usados - declarados)})"
@@ -91,13 +91,13 @@ def _validar(ind: Indicator, ruta: Path) -> None:
 def cargar(raiz: Path = CATALOGO) -> dict[str, Indicator]:
     """Carga y valida todo el catálogo. Cualquier falla revienta aquí, al arrancar."""
     if not raiz.is_dir():
-        raise CatalogoInvalido(f"{raiz}: no existe el directorio del catálogo")
+        raise InvalidCatalog(f"{raiz}: no existe el directorio del catálogo")
 
     indicadores: dict[str, Indicator] = {}
     for ruta in sorted(raiz.glob("*/*.yaml")):
         ind = _leer(ruta)
         if ind.id in indicadores:
-            raise CatalogoInvalido(f"{ruta}: id duplicado '{ind.id}'")
+            raise InvalidCatalog(f"{ruta}: id duplicado '{ind.id}'")
         _validar(ind, ruta)
         indicadores[ind.id] = ind
     return indicadores
@@ -119,4 +119,4 @@ def obtener(id: str) -> Indicator:
     try:
         return cargar()[id]
     except KeyError:
-        raise IndicadorNoExiste(f"Indicador '{id}' no existe en el catálogo") from None
+        raise IndicatorNotFound(f"Indicador '{id}' no existe en el catálogo") from None

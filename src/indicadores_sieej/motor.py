@@ -18,7 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from indicadores_sieej import conexiones
 from indicadores_sieej.catalogo import obtener
 from indicadores_sieej.config import Settings, settings
-from indicadores_sieej.errores import ErrorDeConsulta, LimiteExcedido, ParametrosInvalidos, PipelineNoDisponible
+from indicadores_sieej.errors import QueryError, RowLimitExceeded, InvalidParameters, PipelineUnavailable
 from indicadores_sieej.models import TYPES, Indicator
 
 log = logging.getLogger(__name__)
@@ -33,20 +33,20 @@ def _binds(ind: Indicator, params: dict) -> dict:
 
     desconocidos = set(params) - set(declarados)
     if desconocidos:
-        raise ParametrosInvalidos(f"{ind.id}: parámetros desconocidos {sorted(desconocidos)}")
+        raise InvalidParameters(f"{ind.id}: parámetros desconocidos {sorted(desconocidos)}")
 
     binds = {}
     for nombre, param in declarados.items():
         valor = params.get(nombre)
         if valor is None:
             if param.requerido:
-                raise ParametrosInvalidos(f"{ind.id}: falta el parámetro requerido '{nombre}'")
+                raise InvalidParameters(f"{ind.id}: falta el parámetro requerido '{nombre}'")
             binds[nombre] = None
         else:
             try:
                 binds[nombre] = TYPES[param.tipo](valor)
             except (TypeError, ValueError):
-                raise ParametrosInvalidos(f"{ind.id}: el parámetro '{nombre}' no es un {param.tipo} válido") from None
+                raise InvalidParameters(f"{ind.id}: el parámetro '{nombre}' no es un {param.tipo} válido") from None
     return binds
 
 
@@ -66,7 +66,7 @@ def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
     binds = _binds(ind, params)
 
     if not conexiones.disponible(ind.pipeline, cfg):
-        raise PipelineNoDisponible(f"{ind.id}: indicador no disponible en este despliegue")
+        raise PipelineUnavailable(f"{ind.id}: indicador no disponible en este despliegue")
 
     try:
         with conexiones.pool(ind.pipeline, cfg).connect() as conn:
@@ -78,12 +78,12 @@ def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
         # excepción completa: su texto trae la consulta.
         referencia = uuid4().hex[:8]
         log.error("consulta fallida (%s) en %s/%s: %s", referencia, ind.pipeline, ind.id, type(exc).__name__)
-        raise ErrorDeConsulta(f"{ind.id}: error al consultar la base (referencia: {referencia})") from None
+        raise QueryError(f"{ind.id}: error al consultar la base (referencia: {referencia})") from None
 
     # El límite falla ruidoso: devolver 5000 filas de una serie de 40000 sin decirlo
     # haría que el agente reportara como completa una serie cortada.
     if len(filas) > cfg.limite_filas:
-        raise LimiteExcedido(
+        raise RowLimitExceeded(
             f"{ind.id}: la consulta excede {cfg.limite_filas} filas; "
             f"acota con {sorted(p.nombre for p in ind.parametros)}"
         )
