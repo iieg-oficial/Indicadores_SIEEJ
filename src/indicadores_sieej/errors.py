@@ -56,6 +56,24 @@ class PipelineUnavailable(BankError):
     recoverable = False
 
 
+class Unauthenticated(BankError):
+    """Sin token, o con un token que no verifica.
+
+    El mensaje no dice cuál de las dos cosas pasó más allá de lo que ya distinguen el
+    401 y el 403: quien prueba tokens no debe aprender nada del texto.
+    """
+
+    http = 401
+    recoverable = False
+
+
+class InsufficientScope(BankError):
+    """Token válido, pero sin el scope que exige el banco."""
+
+    http = 403
+    recoverable = False
+
+
 class QueryError(BankError):
     """Base caída o consulta fallida. Al cliente va genérico; el detalle, al log."""
 
