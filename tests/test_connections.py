@@ -12,24 +12,24 @@ from indicadores_sieej.errors import PipelineUnavailable
 from .conftest import cfg as _cfg
 
 
-class _MotorFalso:
+class _FakeEngine:
     def dispose(self):
         pass
 
 
 @pytest.fixture(autouse=True)
-def sin_pools():
+def no_pools():
     connections.close_all()
     yield
     connections.close_all()
 
 
-def test_el_dsn_propio_gana_sobre_el_servidor_por_defecto(monkeypatch):
+def test_an_explicit_dsn_wins_over_the_default_server(monkeypatch):
     monkeypatch.setenv("IIEGDB_DSN_CONAPO", "postgresql://u:p@otro:5432/conapo_2024")
     assert connections.dsn("conapo", _cfg()) == "postgresql://u:p@otro:5432/conapo_2024"
 
 
-def test_el_servidor_por_defecto_arma_el_dsn_con_el_nombre_del_pipeline(monkeypatch):
+def test_the_default_server_builds_the_dsn_from_the_pipeline_name(monkeypatch):
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
     url = connections.dsn("ilmm", _cfg(pipelines="ilmm"))
     assert url.database == "ilmm"
@@ -37,59 +37,59 @@ def test_el_servidor_por_defecto_arma_el_dsn_con_el_nombre_del_pipeline(monkeypa
     assert url.query["sslmode"] == "require"
 
 
-def test_la_contrasena_no_necesita_ir_url_encodeada(monkeypatch):
+def test_the_password_needs_no_url_encoding(monkeypatch):
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
     url = connections.dsn("ilmm", _cfg(pipelines="ilmm", pg_password="p@ss:word/raro"))
     assert "p%40ss%3Aword%2Fraro" in url.render_as_string(hide_password=False)
 
 
-def test_un_pipeline_fuera_de_la_lista_no_tiene_dsn(monkeypatch):
+def test_a_pipeline_outside_the_list_has_no_dsn(monkeypatch):
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
-    settings = _cfg(pipelines="enoe_microdatos")
-    assert connections.dsn("ilmm", settings) is None
-    assert not connections.available("ilmm", settings)
+    cfg = _cfg(pipelines="enoe_microdatos")
+    assert connections.dsn("ilmm", cfg) is None
+    assert not connections.available("ilmm", cfg)
     with pytest.raises(PipelineUnavailable):
-        connections.pool("ilmm", settings)
+        connections.pool("ilmm", cfg)
 
 
-def test_el_pool_nace_en_la_primera_consulta_y_se_reutiliza(monkeypatch):
+def test_the_pool_is_born_on_the_first_query_and_is_reused(monkeypatch):
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
-    settings = _cfg(pipelines="ilmm")
+    cfg = _cfg(pipelines="ilmm")
     assert not connections.is_open("ilmm"), "no debe haber pools antes de la primera consulta"
 
-    primero = connections.pool("ilmm", settings)
+    first = connections.pool("ilmm", cfg)
     assert connections.is_open("ilmm")
-    assert connections.pool("ilmm", settings) is primero, "un solo pool por pipeline"
+    assert connections.pool("ilmm", cfg) is first, "un solo pool por pipeline"
 
 
-def test_el_pool_se_dimensiona_como_dice_la_configuracion(monkeypatch):
+def test_the_pool_is_sized_as_the_configuration_says(monkeypatch):
     # Se capturan los argumentos en vez de leer los atributos privados del pool de
     # SQLAlchemy, que no son parte de su API pública.
-    argumentos = {}
-    monkeypatch.setattr(connections, "create_engine", lambda dsn, **kw: argumentos.update(kw) or _MotorFalso())
+    kwargs = {}
+    monkeypatch.setattr(connections, "create_engine", lambda dsn, **kw: kwargs.update(kw) or _FakeEngine())
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
 
     connections.pool("ilmm", _cfg(pipelines="ilmm", pool_size=4, pool_max_overflow=6))
-    assert argumentos["pool_size"] == 4
-    assert argumentos["max_overflow"] == 6
-    assert argumentos["pool_timeout"] == 10
+    assert kwargs["pool_size"] == 4
+    assert kwargs["max_overflow"] == 6
+    assert kwargs["pool_timeout"] == 10
     # Proceso de larga vida, a diferencia del CLI del ETL.
-    assert argumentos["pool_pre_ping"] is True
-    assert argumentos["pool_recycle"] == 3600
-    assert argumentos["connect_args"] == {"options": "-c statement_timeout=15000"}
+    assert kwargs["pool_pre_ping"] is True
+    assert kwargs["pool_recycle"] == 3600
+    assert kwargs["connect_args"] == {"options": "-c statement_timeout=15000"}
 
 
-def test_estado_reporta_sin_abrir_pools(monkeypatch):
+def test_status_reports_without_opening_pools(monkeypatch):
     monkeypatch.delenv("IIEGDB_DSN_ILMM", raising=False)
     monkeypatch.delenv("IIEGDB_DSN_CONAPO", raising=False)
-    settings = _cfg(pipelines="ilmm")
+    cfg = _cfg(pipelines="ilmm")
 
-    estado = connections.status(["ilmm", "conapo"], settings)
-    assert estado == {
+    status = connections.status(["ilmm", "conapo"], cfg)
+    assert status == {
         "conapo": {"dsn": False, "pool": "unopened"},
         "ilmm": {"dsn": True, "pool": "unopened"},
     }
     assert not connections.is_open("ilmm"), "/ready no debe abrir pools"
 
-    connections.pool("ilmm", settings)
-    assert connections.status(["ilmm"], settings)["ilmm"]["pool"] == "open"
+    connections.pool("ilmm", cfg)
+    assert connections.status(["ilmm"], cfg)["ilmm"]["pool"] == "open"

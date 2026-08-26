@@ -7,84 +7,84 @@ import pytest
 from indicadores_sieej import connections, engine
 from indicadores_sieej.catalog import COLUMNS, get
 from indicadores_sieej.errors import (
-    QueryError,
-    RowLimitExceeded,
     InvalidParameters,
     PipelineUnavailable,
+    QueryError,
+    RowLimitExceeded,
 )
 
-from .conftest import FILA, cfg as _cfg
+from .conftest import ROW, cfg as _cfg
 
 
 # --- Parámetros y coacción de tipos ---
 
 
-def test_coacciona_al_tipo_declarado(conexion):
-    falsa = conexion()
+def test_coerces_to_the_declared_type(connection):
+    fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), anio_min="2020")
-    assert falsa.binds["anio_min"] == 2020
+    assert fake.binds["anio_min"] == 2020
 
 
-def test_valor_no_coaccionable(conexion):
-    conexion()
+def test_value_that_cannot_be_coerced(connection):
+    connection()
     with pytest.raises(InvalidParameters, match="no es un int válido"):
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), anio_min="dos mil")
 
 
-def test_parametro_no_declarado(conexion):
-    conexion()
+def test_undeclared_param(connection):
+    connection()
     with pytest.raises(InvalidParameters) as exc:
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), municipio="14039")
     assert str(exc.value) == "incidencia_delictiva_municipal: parámetros desconocidos ['municipio']"
 
 
-def test_parametro_requerido_ausente(conexion, monkeypatch):
+def test_missing_required_param(connection, monkeypatch):
     # Ninguno del piloto es requerido: se fuerza uno sobre un indicador real.
     ind = get("incidencia_delictiva_municipal")
-    requerido = ind.model_copy(deep=True)
-    requerido.parametros[0].requerido = True
-    monkeypatch.setattr(engine, "get", lambda _: requerido)
-    conexion()
+    required = ind.model_copy(deep=True)
+    required.parametros[0].requerido = True
+    monkeypatch.setattr(engine, "get", lambda _: required)
+    connection()
     with pytest.raises(InvalidParameters, match="falta el parámetro requerido 'cve_geo'"):
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
 
 
-def test_opcional_ausente_viaja_como_null(conexion):
-    falsa = conexion()
+def test_absent_optional_travels_as_null(connection):
+    fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
-    assert falsa.binds == {"cve_geo": None, "tipo_delito": None, "anio_min": None}
+    assert fake.binds == {"cve_geo": None, "tipo_delito": None, "anio_min": None}
 
 
 # --- Binds, envoltura y solo lectura ---
 
 
-def test_los_valores_no_entran_al_texto_del_sql(conexion):
+def test_values_never_reach_the_sql_text(connection):
     """Si alguien reintroduce concatenación, el valor aparece en el sql y esto falla."""
-    falsa = conexion()
+    fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), cve_geo="14039")
-    assert "14039" not in str(falsa.consulta)
-    assert falsa.binds["cve_geo"] == "14039"
+    assert "14039" not in str(fake.query)
+    assert fake.binds["cve_geo"] == "14039"
 
 
-def test_la_consulta_va_envuelta_y_acotada(conexion):
-    falsa = conexion()
+def test_the_query_is_wrapped_and_bounded(connection):
+    fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg(row_limit=10))
-    consulta = str(falsa.consulta)
-    assert consulta.startswith("SELECT * FROM (")
-    assert consulta.endswith(") _bank LIMIT 11")
+    query = str(fake.query)
+    assert query.startswith("SELECT * FROM (")
+    assert query.endswith(") _bank LIMIT 11")
 
 
-def test_la_transaccion_es_de_solo_lectura(conexion):
-    falsa = conexion()
+def test_the_transaction_is_read_only(connection):
+    fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
-    assert falsa.opciones == {"postgresql_readonly": True}
+    assert fake.options == {"postgresql_readonly": True}
 
 
 # --- Límite ---
 
 
-def test_el_limite_falla_ruidoso(conexion):
-    conexion([FILA] * 5001)
+def test_the_limit_fails_loudly(connection):
+    connection([ROW] * 5001)
     with pytest.raises(RowLimitExceeded) as exc:
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
     assert str(exc.value) == (
@@ -93,36 +93,36 @@ def test_el_limite_falla_ruidoso(conexion):
     )
 
 
-def test_el_limite_justo_no_falla(conexion):
-    conexion([FILA] * 5000)
+def test_the_exact_limit_does_not_fail(connection):
+    connection([ROW] * 5000)
     assert len(engine.execute("incidencia_delictiva_municipal", cfg=_cfg())["filas"]) == 5000
 
 
 # --- Sobre de respuesta ---
 
 
-def test_el_sobre_lleva_metadata_parametros_y_notas(conexion):
-    conexion([FILA])
-    sobre = engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), cve_geo="14039")
-    assert sobre["indicador"] == "incidencia_delictiva_municipal"
-    assert sobre["unidad"] and sobre["fuente"] and sobre["nombre"]
-    assert sobre["notas"], "notas viaja siempre que el indicador la tenga"
-    assert sobre["parametros_aplicados"] == {"cve_geo": "14039", "tipo_delito": None, "anio_min": None}
-    assert list(sobre["filas"][0]) == list(COLUMNS)
+def test_the_envelope_carries_metadata_params_and_notes(connection):
+    connection([ROW])
+    envelope = engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), cve_geo="14039")
+    assert envelope["indicador"] == "incidencia_delictiva_municipal"
+    assert envelope["unidad"] and envelope["fuente"] and envelope["nombre"]
+    assert envelope["notas"], "notas viaja siempre que el indicador la tenga"
+    assert envelope["parametros_aplicados"] == {"cve_geo": "14039", "tipo_delito": None, "anio_min": None}
+    assert list(envelope["filas"][0]) == list(COLUMNS)
 
 
 # --- Fallas de infraestructura ---
 
 
-def test_pipeline_sin_dsn(monkeypatch):
+def test_pipeline_without_dsn(monkeypatch):
     monkeypatch.setattr(connections, "available", lambda *a, **k: False)
     with pytest.raises(PipelineUnavailable) as exc:
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
     assert str(exc.value) == "incidencia_delictiva_municipal: indicador no disponible en este despliegue"
 
 
-def test_base_caida_no_filtra_nada(conexion, caplog):
-    conexion(falla=True)
+def test_a_dead_database_leaks_nothing(connection, caplog):
+    connection(fails=True)
     with caplog.at_level(logging.INFO):
         with pytest.raises(QueryError, match="error al consultar la base"):
             engine.execute("incidencia_delictiva_municipal", cfg=_cfg())

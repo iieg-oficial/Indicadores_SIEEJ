@@ -11,62 +11,62 @@ import pytest
 from indicadores_sieej import cli
 from indicadores_sieej.errors import InvalidCatalog
 
-from .conftest import FILA, cfg as _cfg
+from .conftest import ROW, cfg as _cfg
 
 
-def test_listar_imprime_json_limpio(capsys):
+def test_listar_prints_clean_json(capsys):
     assert cli.main(["listar", "--tema", "empleo"]) == 0
-    salida = capsys.readouterr()
-    assert len(json.loads(salida.out)) == 5
-    assert salida.err == "", "ningún log puede ensuciar stdout ni aparecer aquí"
+    output = capsys.readouterr()
+    assert len(json.loads(output.out)) == 5
+    assert output.err == "", "ningún log puede ensuciar stdout ni aparecer aquí"
 
 
-def test_describir_no_imprime_el_sql(capsys):
+def test_describir_does_not_print_the_sql(capsys):
     assert cli.main(["describir", "pobreza_municipal"]) == 0
     metadata = json.loads(capsys.readouterr().out)
     assert "sql" not in metadata
     assert metadata["definicion"] and metadata["fuente"]
 
 
-def test_ejecutar_devuelve_el_sobre(capsys, conexion, monkeypatch):
-    conexion([FILA])
+def test_ejecutar_returns_the_envelope(capsys, connection, monkeypatch):
+    connection([ROW])
     monkeypatch.setattr(cli.engine, "settings", lambda: _cfg())
     assert cli.main(["ejecutar", "pobreza_municipal", "-p", "cve_geo=14039"]) == 0
-    sobre = json.loads(capsys.readouterr().out)
-    assert sobre["indicador"] == "pobreza_municipal"
-    assert sobre["parametros_aplicados"] == {"cve_geo": "14039", "anio_min": None}
+    envelope = json.loads(capsys.readouterr().out)
+    assert envelope["indicador"] == "pobreza_municipal"
+    assert envelope["parametros_aplicados"] == {"cve_geo": "14039", "anio_min": None}
 
 
-def test_ejecutar_con_parametro_no_declarado_sale_con_error(capsys, conexion, monkeypatch):
-    conexion([FILA])
+def test_ejecutar_with_an_undeclared_param_exits_with_error(capsys, connection, monkeypatch):
+    connection([ROW])
     monkeypatch.setattr(cli.engine, "settings", lambda: _cfg())
     assert cli.main(["ejecutar", "pobreza_municipal", "-p", "municipio=14039"]) == 1
-    salida = capsys.readouterr()
-    assert "parámetros desconocidos" in salida.err
-    assert salida.out == "", "un error no imprime JSON a medias"
+    output = capsys.readouterr()
+    assert "parámetros desconocidos" in output.err
+    assert output.out == "", "un error no imprime JSON a medias"
 
 
-def test_describir_un_id_inexistente_sale_con_error(capsys):
+def test_describir_with_an_unknown_id_exits_with_error(capsys):
     assert cli.main(["describir", "no_existe"]) == 1
     assert "no existe en el catálogo" in capsys.readouterr().err
 
 
-def test_validar_sale_con_cero_en_un_catalogo_sano(capsys):
+def test_validar_exits_with_zero_on_a_healthy_catalog(capsys):
     assert cli.main(["validar"]) == 0
     assert "12 indicadores válidos" in capsys.readouterr().err
 
 
-def test_validar_sale_con_error_y_nombra_el_archivo(capsys, monkeypatch):
-    def _revienta():
+def test_validar_exits_with_error_and_names_the_file(capsys, monkeypatch):
+    def _blow_up():
         raise InvalidCatalog("catalogo/pobreza/roto.yaml: campo desconocido 'inventado'")
 
-    monkeypatch.setattr(cli, "load", _revienta)
+    monkeypatch.setattr(cli, "load", _blow_up)
     assert cli.main(["validar"]) == 1
-    salida = capsys.readouterr()
-    assert "catalogo/pobreza/roto.yaml" in salida.err
-    assert salida.out == ""
+    output = capsys.readouterr()
+    assert "catalogo/pobreza/roto.yaml" in output.err
+    assert output.out == ""
 
 
-def test_los_parametros_mal_escritos_se_rechazan():
+def test_malformed_params_are_rejected():
     with pytest.raises(SystemExit, match="-p nombre=valor"):
         cli.main(["ejecutar", "pobreza_municipal", "-p", "cve_geo"])
