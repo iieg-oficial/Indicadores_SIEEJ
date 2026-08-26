@@ -12,8 +12,9 @@ import os
 import threading
 from typing import Iterable, Optional
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import URL
+from sqlalchemy.exc import SQLAlchemyError
 
 from indicadores_sieej.config import Settings, settings
 from indicadores_sieej.errors import PipelineUnavailable
@@ -98,6 +99,22 @@ def status(pipelines: Iterable[str], cfg: Optional[Settings] = None) -> dict[str
         pipeline: {"dsn": available(pipeline, cfg), "pool": "open" if is_open(pipeline) else "unopened"}
         for pipeline in sorted(set(pipelines))
     }
+
+
+def check(pipeline: str, cfg: Optional[Settings] = None) -> bool:
+    """Verifica de verdad un pipeline: abre su pool y le pide un `SELECT 1`.
+
+    Es lo único que abre un pool sin que nadie haya consultado, y por eso solo lo llama
+    `/ready?pipeline=<p>` para uno a la vez: hacerlo con todos convertiría cada sondeo
+    del orquestador en una conexión por pipeline catalogado.
+    """
+    cfg = cfg or settings()
+    try:
+        with pool(pipeline, cfg).connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except (SQLAlchemyError, PipelineUnavailable):
+        return False
+    return True
 
 
 def close_all() -> None:
