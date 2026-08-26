@@ -22,12 +22,13 @@ más tarde al servir la primera consulta.
 
 | Variable               |   Oblig.    | Descripción                           |
 | ---------------------- | :---------: | ------------------------------------- |
-| `IIEGDB_AUTH_MODE`     |     Sí      | `static` \| `jwt`                     |
+| `IIEGDB_AUTH_MODE`     |     Sí      | `registro` \| `static` \| `jwt`       |
 | `IIEGDB_STATIC_TOKENS` | Condicional | Tokens y sus scopes, en modo `static` |
 | `IIEGDB_JWKS_URI`      | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_ISSUER`        | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_AUDIENCE`      | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_BASE_URL`      |     Sí      | URL pública del servidor              |
+| `IIEGDB_REGISTRY_DSN`  | Condicional | Base del registro, en modo `registro` |
 
 ### Límites y operación
 
@@ -43,6 +44,29 @@ más tarde al servir la primera consulta.
 
 > `POOL_SIZE` y `POOL_MAX_OVERFLOW` son por pipeline, así que se multiplican por la cantidad de
 > pipelines en uso. La cuenta que hay que hacer antes de subirlos está en [conexiones.md](conexiones.md#el-presupuesto-de-conexiones).
+
+### Los tres modos
+
+`registro` es el de producción: tokens de autoservicio verificados contra la base propia del
+servicio. `static` es para desarrollo. `jwt` queda para el día que exista un proveedor de identidad
+institucional. Decidido en [#29]; el detalle está en [tokens.md](tokens.md).
+
+### El registro de tokens
+
+| Variable                   | Oblig. | Descripción                                                    |
+| -------------------------- | :----: | -------------------------------------------------------------- |
+| `IIEGDB_REGISTRY_DSN`      |   Sí   | DSN completo de la base del registro, con **rol de escritura** |
+| `IIEGDB_TOKEN_TTL_DAYS`    |   No   | Caducidad por desuso; por defecto `90`                         |
+| `IIEGDB_TOKEN_TOUCH_S`     |   No   | Cada cuánto se refresca el último uso; por defecto `3600`      |
+| `IIEGDB_TOKEN_CACHE_TTL_S` |   No   | Vida del token en el caché del proceso; por defecto `60`       |
+
+> `IIEGDB_REGISTRY_DSN` **no se deriva de `IIEGDB_PG_*`** ni cae de vuelta en él. Ese bloque es el rol
+> de **solo lectura** de las 33 bases del ETL; derivar de ahí crearía presión para concederle
+> escritura, y eso rompería la garantía de solo lectura en todas a la vez.
+
+**Las tres ventanas tienen que cumplir `CACHE_TTL_S < TOUCH_S < TTL_DAYS`**, y el servidor no arranca
+si no. Es lo que hace que un token en uso continuo refresque su último uso antes de caducar: subir el
+caché "para bajar carga" haría que un token activo caducara solo, y tardaría noventa días en notarse.
 
 ### El formato de `IIEGDB_STATIC_TOKENS`
 
