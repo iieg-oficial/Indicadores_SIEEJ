@@ -14,15 +14,22 @@ son el contrato de docs/superficies.md.
 
 from typing import Optional
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Request
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from indicadores_sieej import connections, engine
+from indicadores_sieej.auth import authenticated
 from indicadores_sieej.catalog import find, get, load
 from indicadores_sieej.errors import BankError
 
-router = APIRouter(prefix="/v1", tags=["indicadores"])
+# La dependencia va en el router y no ruta por ruta: así una ruta nueva nace protegida
+# en vez de nacer abierta y esperar a que alguien se acuerde.
+AUTH = [Depends(authenticated)]
+
+router = APIRouter(prefix="/v1", tags=["indicadores"], dependencies=AUTH)
 operations = APIRouter(tags=["operación"])
+schema = APIRouter(tags=["operación"], dependencies=AUTH, include_in_schema=False)
 
 
 async def bank_error_handler(request: Request, exc: BankError) -> JSONResponse:
@@ -73,7 +80,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@operations.get("/ready")
+@operations.get("/ready", dependencies=AUTH)
 def ready(pipeline: Optional[str] = None) -> JSONResponse:
     """Readiness por pipeline: si tiene DSN resuelto y si su pool está abierto.
 
@@ -91,3 +98,19 @@ def ready(pipeline: Optional[str] = None) -> JSONResponse:
     # indicadores responden 503 uno por uno. Sin ninguno, el servidor no sirve nada.
     is_ready = any(state["dsn"] for state in pipelines.values())
     return JSONResponse(status_code=200 if is_ready else 503, content={"ready": is_ready, "pipelines": pipelines})
+
+
+# El esquema se publica autenticado, como todo salvo /health: `docs/garantias.md` no
+# hace excepción para él. Por eso se apagan los de FastAPI y se re-registran aquí.
+
+
+@schema.get("/openapi.json")
+def openapi_schema(request: Request) -> dict:
+    """El OpenAPI del servidor."""
+    return request.app.openapi()
+
+
+@schema.get("/docs", response_class=HTMLResponse)
+def swagger_ui() -> HTMLResponse:
+    """La consola de OpenAPI."""
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Banco de indicadores IIEG")

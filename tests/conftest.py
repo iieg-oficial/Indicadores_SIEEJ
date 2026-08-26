@@ -1,9 +1,11 @@
-"""Dobles compartidos por las pruebas del motor. Ninguna prueba abre una base."""
+"""Dobles compartidos por las pruebas. Ninguna prueba abre una base ni un puerto."""
+
+from contextlib import contextmanager
 
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import config, connections, engine
+from indicadores_sieej import auth, config, connections, engine
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
@@ -11,13 +13,18 @@ ROW = dict.fromkeys(COLUMNS, None)
 
 # Lo mínimo que exige Settings. Se usa de dos formas: como kwargs para construirlas a
 # mano, y como variables de entorno cuando la prueba levanta el app de verdad.
+# Dos tokens: uno con el scope del banco y otro válido pero sin él. Es lo que permite
+# separar el 401 del 403 sin inventar un verificador de mentira.
+TOKEN = "con_scope"
+SCOPELESS = "sin_scope"
+
 BASE = {
     "pg_host": "h",
     "pg_user": "u",
     "pg_password": "p",
     "pipelines": "*",
     "auth_mode": "static",
-    "static_tokens": "t:c:indicadores:read",
+    "static_tokens": "con_scope:cliente_a:indicadores:read,sin_scope:cliente_b:otro:scope",
     "base_url": "https://x",
 }
 
@@ -95,9 +102,9 @@ def process_settings(monkeypatch):
     return cfg()
 
 
-@pytest.fixture
-def api(monkeypatch):
-    """Cliente REST contra el app real, con su lifespan corrido y sin base de datos.
+@contextmanager
+def _client(monkeypatch, token):
+    """Levanta el app real con su lifespan, sin base de datos.
 
     Las settings se ponen en el entorno en vez de sustituirlas: así la prueba pasa por
     la validación de arranque, que es parte de lo que se está probando.
@@ -109,8 +116,24 @@ def api(monkeypatch):
     for name, value in BASE.items():
         monkeypatch.setenv(f"IIEGDB_{name.upper()}", value)
     config.settings.cache_clear()
+    auth.verifier.cache_clear()
     try:
-        with TestClient(create_app()) as client:
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        with TestClient(create_app(), headers=headers) as client:
             yield client
     finally:
         config.settings.cache_clear()
+        auth.verifier.cache_clear()
+
+
+@pytest.fixture
+def api(monkeypatch):
+    """Cliente REST autenticado y con el scope del banco: el caso normal."""
+    with _client(monkeypatch, TOKEN) as client:
+        yield client
+
+
+@pytest.fixture
+def clients(monkeypatch):
+    """Fábrica de clientes con el token que pida la prueba; None manda sin cabecera."""
+    return lambda token: _client(monkeypatch, token)

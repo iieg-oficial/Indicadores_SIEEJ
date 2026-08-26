@@ -44,6 +44,29 @@ más tarde al servir la primera consulta.
 > `POOL_SIZE` y `POOL_MAX_OVERFLOW` son por pipeline, así que se multiplican por la cantidad de
 > pipelines en uso. La cuenta que hay que hacer antes de subirlos está en [conexiones.md](conexiones.md#el-presupuesto-de-conexiones).
 
+### El formato de `IIEGDB_STATIC_TOKENS`
+
+Una entrada por consumidor, separadas por comas:
+
+```
+<token>:<cliente>:<scope>[ <scope>…]
+```
+
+El scope lleva dos puntos dentro, así que la entrada se parte **en tres**: lo que queda después del
+segundo `:` es la lista de scopes, separados por espacios. El scope que exige el banco es
+`indicadores:read`; un token válido sin él recibe `403`.
+
+```
+IIEGDB_STATIC_TOKENS=tok_tableros:tableros:indicadores:read,tok_agente:agente-ia:indicadores:read
+```
+
+**Revocar un token es quitar su entrada y reiniciar.** No hay estado que limpiar: los tokens se leen
+de aquí y se resuelven una sola vez por proceso.
+
+> ⚠️ En modo `static` los tokens se guardan **en texto plano**. Es lo que pide SEG-7 para un
+> despliegue interno con pocos consumidores conocidos, y **no es desplegable en producción**: la
+> decisión de pasar a `jwt` o a un verificador contra hashes se toma en #29.
+
 ## Secretos
 
 **Los DSN y los tokens nunca se versionan ni se escriben en logs de ningún nivel.** `.env.example`

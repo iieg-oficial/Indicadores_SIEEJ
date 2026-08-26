@@ -38,11 +38,17 @@ un bug**:
 
 ## Autenticación
 
-Ninguna ruta salvo `/health` responde sin autenticación válida — ni `/mcp` ni `/v1/*`. El scope
-requerido es **`indicadores:read`**; un token sin él recibe `403`. MCP y REST **comparten la misma
-verificación**: dos implementaciones distintas de auth en el mismo proceso es cómo se abre un agujero.
+Ninguna ruta salvo `/health` responde sin autenticación válida — ni `/mcp`, ni `/v1/*`, ni `/ready`,
+ni el propio `/docs`. El scope requerido es **`indicadores:read`**; un token sin él recibe `403`.
+
+MCP y REST **comparten la misma verificación**: una sola función decide quién entra, y las dos
+superficies la llaman. Dos implementaciones distintas de auth en el mismo proceso es cómo se abre un
+agujero. Lo verifica una prueba que recorre **todas** las rutas registradas del app: si alguien
+agrega una por fuera del router, falla.
 
 Cada token identifica a **un** consumidor. Es lo que hace útil la auditoría.
+
+Por qué la verificación es propia y no la de FastMCP: [decisiones.md](decisiones.md).
 
 ## Qué se acepta como riesgo residual
 
