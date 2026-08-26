@@ -5,7 +5,7 @@ import logging
 import pytest
 
 from indicadores_sieej import conexiones, motor
-from indicadores_sieej.catalogo import COLUMNAS, obtener
+from indicadores_sieej.catalog import COLUMNS, get
 from indicadores_sieej.errors import (
     QueryError,
     RowLimitExceeded,
@@ -40,10 +40,10 @@ def test_parametro_no_declarado(conexion):
 
 def test_parametro_requerido_ausente(conexion, monkeypatch):
     # Ninguno del piloto es requerido: se fuerza uno sobre un indicador real.
-    ind = obtener("incidencia_delictiva_municipal")
+    ind = get("incidencia_delictiva_municipal")
     requerido = ind.model_copy(deep=True)
     requerido.parametros[0].requerido = True
-    monkeypatch.setattr(motor, "obtener", lambda _: requerido)
+    monkeypatch.setattr(motor, "get", lambda _: requerido)
     conexion()
     with pytest.raises(InvalidParameters, match="falta el parámetro requerido 'cve_geo'"):
         motor.ejecutar("incidencia_delictiva_municipal", cfg=_cfg())
@@ -108,7 +108,7 @@ def test_el_sobre_lleva_metadata_parametros_y_notas(conexion):
     assert sobre["unidad"] and sobre["fuente"] and sobre["nombre"]
     assert sobre["notas"], "notas viaja siempre que el indicador la tenga"
     assert sobre["parametros_aplicados"] == {"cve_geo": "14039", "tipo_delito": None, "anio_min": None}
-    assert list(sobre["filas"][0]) == list(COLUMNAS)
+    assert list(sobre["filas"][0]) == list(COLUMNS)
 
 
 # --- Fallas de infraestructura ---

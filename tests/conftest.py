@@ -4,10 +4,10 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from indicadores_sieej import conexiones
-from indicadores_sieej.catalogo import COLUMNAS
+from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
-FILA = dict.fromkeys(COLUMNAS, None)
+FILA = dict.fromkeys(COLUMNS, None)
 
 
 def cfg(**cambios) -> Settings:

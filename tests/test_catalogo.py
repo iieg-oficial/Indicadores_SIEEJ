@@ -10,14 +10,14 @@ from pathlib import Path
 import pytest
 import yaml
 
-from indicadores_sieej.catalogo import BINDS, CATALOGO, COLUMNAS, VISTA_REDUCIDA, cargar, listar, obtener
+from indicadores_sieej.catalog import BINDS, CATALOG_DIR, COLUMNS, SUMMARY_FIELDS, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, IndicatorNotFound
 
-INDICADORES = list(cargar().values())
+INDICADORES = list(load().values())
 
 # Punto de partida de las pruebas negativas: un indicador válido al que se le rompe
 # una cosa a la vez.
-BASE = yaml.safe_load((CATALOGO / "pobreza" / "pobreza_municipal.yaml").read_text(encoding="utf-8"))
+BASE = yaml.safe_load((CATALOG_DIR / "pobreza" / "pobreza_municipal.yaml").read_text(encoding="utf-8"))
 
 
 def _catalogo(raiz: Path, carpeta: str = "pobreza", archivo: str = "pobreza_municipal", **cambios) -> Path:
@@ -36,19 +36,19 @@ def test_catalogo_no_vacio():
 
 
 def test_ids_unicos():
-    # cargar() ya revienta con ids duplicados; esto ancla la garantía.
+    # load() ya revienta con ids duplicados; esto ancla la garantía.
     ids = [ind.id for ind in INDICADORES]
     assert len(ids) == len(set(ids))
 
 
 def test_id_coincide_con_nombre_de_archivo():
-    for ruta in CATALOGO.glob("*/*.yaml"):
-        assert ruta.stem in cargar(), f"{ruta}: el id no coincide con el nombre del archivo"
+    for ruta in CATALOG_DIR.glob("*/*.yaml"):
+        assert ruta.stem in load(), f"{ruta}: el id no coincide con el nombre del archivo"
 
 
 @pytest.mark.parametrize("ind", INDICADORES, ids=lambda i: i.id)
 def test_tema_coincide_con_carpeta(ind):
-    assert (CATALOGO / ind.tema / f"{ind.id}.yaml").exists()
+    assert (CATALOG_DIR / ind.tema / f"{ind.id}.yaml").exists()
 
 
 @pytest.mark.parametrize("ind", INDICADORES, ids=lambda i: i.id)
@@ -63,27 +63,27 @@ def test_parametros_y_binds_coinciden(ind):
 
 @pytest.mark.parametrize("ind", INDICADORES, ids=lambda i: i.id)
 def test_sql_declara_las_cinco_columnas(ind):
-    for columna in COLUMNAS:
+    for columna in COLUMNS:
         assert f"AS {columna}" in ind.sql, f"{ind.id}: falta la columna '{columna}' en el SELECT"
 
 
 def test_listar_filtra_y_devuelve_la_vista_reducida():
-    empleo = listar(tema="empleo")
+    empleo = find(tema="empleo")
     assert empleo and all(m["tema"] == "empleo" for m in empleo)
-    assert all(set(m) == set(VISTA_REDUCIDA) for m in empleo)
-    assert all(m["nivel"] == "municipal" for m in listar(nivel="municipal"))
-    assert listar(tema="no_existe") == []
+    assert all(set(m) == set(SUMMARY_FIELDS) for m in empleo)
+    assert all(m["nivel"] == "municipal" for m in find(nivel="municipal"))
+    assert find(tema="no_existe") == []
 
 
 def test_obtener_devuelve_la_metadata_completa_sin_sql():
-    metadata = obtener("pobreza_municipal").metadata()
+    metadata = get("pobreza_municipal").metadata()
     assert "sql" not in metadata
     assert metadata["definicion"] and metadata["fuente"] and metadata["parametros"]
 
 
 def test_obtener_id_inexistente():
     with pytest.raises(IndicatorNotFound):
-        obtener("no_existe")
+        get("no_existe")
 
 
 def test_binds_ignora_los_casts_de_postgres():
@@ -96,7 +96,7 @@ def test_binds_ignora_los_casts_de_postgres():
 def test_campo_desconocido(tmp_path):
     raiz = _catalogo(tmp_path, inventado="lo que sea")
     with pytest.raises(InvalidCatalog, match="campo desconocido 'inventado'"):
-        cargar(raiz)
+        load(raiz)
 
 
 def test_id_duplicado(tmp_path):
@@ -104,35 +104,35 @@ def test_id_duplicado(tmp_path):
     _catalogo(tmp_path, carpeta="empleo", tema="empleo")
     _catalogo(tmp_path)
     with pytest.raises(InvalidCatalog, match="id duplicado 'pobreza_municipal'"):
-        cargar(tmp_path)
+        load(tmp_path)
 
 
 def test_id_distinto_del_nombre_de_archivo(tmp_path):
     raiz = _catalogo(tmp_path, archivo="otro_nombre")
     with pytest.raises(InvalidCatalog, match="el id no coincide con el nombre del archivo"):
-        cargar(raiz)
+        load(raiz)
 
 
 def test_tema_distinto_de_la_carpeta(tmp_path):
     raiz = _catalogo(tmp_path, carpeta="empleo")
     with pytest.raises(InvalidCatalog, match="el tema no coincide con la carpeta"):
-        cargar(raiz)
+        load(raiz)
 
 
 def test_sql_que_no_empieza_con_select(tmp_path):
     raiz = _catalogo(tmp_path, sql="UPDATE vw_pobreza SET valor = 0")
     with pytest.raises(InvalidCatalog, match="el sql debe empezar con SELECT o WITH"):
-        cargar(raiz)
+        load(raiz)
 
 
 def test_sql_sin_las_cinco_columnas(tmp_path):
     raiz = _catalogo(tmp_path, sql="SELECT 1 AS cve_geo", parametros=[])
     with pytest.raises(InvalidCatalog, match=r"el sql no proyecta las columnas \['nombre_geo'"):
-        cargar(raiz)
+        load(raiz)
 
 
 def test_desajuste_entre_parametros_y_binds(tmp_path):
     # El sql usa :cve_geo y :anio_min; se declara solo el primero.
     raiz = _catalogo(tmp_path, parametros=BASE["parametros"][:1])
     with pytest.raises(InvalidCatalog, match=r"usados sin declarar: \['anio_min'\]"):
-        cargar(raiz)
+        load(raiz)

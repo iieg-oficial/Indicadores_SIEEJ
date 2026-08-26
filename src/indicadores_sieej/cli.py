@@ -12,7 +12,7 @@ import logging
 import sys
 
 from indicadores_sieej import motor
-from indicadores_sieej.catalogo import CATALOGO, cargar, listar, obtener
+from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, BankError
 
 # Nada de logging puede ensuciar stdout: ahí solo va el JSON.
@@ -29,11 +29,11 @@ def _params(pares: list[str]) -> dict:
 def _validar() -> int:
     """Corre las siete validaciones sobre el catálogo. Es el gate de CI."""
     try:
-        indicadores = cargar()
+        indicadores = load()
     except InvalidCatalog as exc:
         print(f"catálogo inválido: {exc}", file=sys.stderr)
         return 1
-    print(f"{len(indicadores)} indicadores válidos en {CATALOGO}", file=sys.stderr)
+    print(f"{len(indicadores)} indicadores válidos en {CATALOG_DIR}", file=sys.stderr)
     return 0
 
 
@@ -61,9 +61,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.comando == "listar":
-            salida = listar(tema=args.tema, nivel=args.nivel)
+            salida = find(tema=args.tema, nivel=args.nivel)
         elif args.comando == "describir":
-            salida = obtener(args.id).metadata()
+            salida = get(args.id).metadata()
         else:
             salida = motor.ejecutar(args.id, **_params(args.params))
     except BankError as exc:

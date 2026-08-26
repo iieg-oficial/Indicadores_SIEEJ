@@ -16,7 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from indicadores_sieej import conexiones
-from indicadores_sieej.catalogo import obtener
+from indicadores_sieej.catalog import get
 from indicadores_sieej.config import Settings, settings
 from indicadores_sieej.errors import QueryError, RowLimitExceeded, InvalidParameters, PipelineUnavailable
 from indicadores_sieej.models import TYPES, Indicator
@@ -62,7 +62,7 @@ def _acotada(ind: Indicator, limite: int):
 def ejecutar(id: str, cfg: Optional[Settings] = None, **params) -> dict:
     """Ejecuta el indicador y devuelve el sobre de respuesta de docs/superficies.md."""
     cfg = cfg or settings()
-    ind = obtener(id)
+    ind = get(id)
     binds = _binds(ind, params)
 
     if not conexiones.disponible(ind.pipeline, cfg):

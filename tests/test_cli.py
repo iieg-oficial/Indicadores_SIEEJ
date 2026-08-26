@@ -60,7 +60,7 @@ def test_validar_sale_con_error_y_nombra_el_archivo(capsys, monkeypatch):
     def _revienta():
         raise InvalidCatalog("catalogo/pobreza/roto.yaml: campo desconocido 'inventado'")
 
-    monkeypatch.setattr(cli, "cargar", _revienta)
+    monkeypatch.setattr(cli, "load", _revienta)
     assert cli.main(["validar"]) == 1
     salida = capsys.readouterr()
     assert "catalogo/pobreza/roto.yaml" in salida.err

@@ -14,12 +14,12 @@ import pytest
 import yaml
 
 from indicadores_sieej import conexiones, motor
-from indicadores_sieej.catalogo import CATALOGO, cargar, listar, obtener
+from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import InvalidCatalog, BankError
 
 from .conftest import FILA, cfg as _cfg
 
-INDICADORES = list(cargar().values())
+INDICADORES = list(load().values())
 
 # Fragmentos que solo pueden venir del sql. El nombre de la vista queda fuera a
 # propósito: viaja legítimamente en el campo `origen` de la metadata.
@@ -46,7 +46,7 @@ def test_hay_fragmentos_que_barrer():
 
 
 def test_listar_no_lleva_sql():
-    _sin_sql(json.dumps(listar(), ensure_ascii=False, default=str), "listar")
+    _sin_sql(json.dumps(find(), ensure_ascii=False, default=str), "listar")
 
 
 @pytest.mark.parametrize("ind", INDICADORES, ids=lambda i: i.id)
@@ -99,14 +99,14 @@ def test_los_errores_del_motor_no_llevan_sql(ind, conexion, monkeypatch):
 def test_los_errores_del_catalogo_no_llevan_sql(ind, tmp_path):
     """La validación del sql es el lugar más fácil por donde se escaparía: tiene el
     sql en la mano cuando redacta el mensaje."""
-    datos = yaml.safe_load((CATALOGO / ind.tema / f"{ind.id}.yaml").read_text(encoding="utf-8"))
+    datos = yaml.safe_load((CATALOG_DIR / ind.tema / f"{ind.id}.yaml").read_text(encoding="utf-8"))
     datos["sql"] = ind.sql.replace("AS cve_geo", "AS clave")
     carpeta = tmp_path / ind.tema
     carpeta.mkdir(parents=True, exist_ok=True)
     (carpeta / f"{ind.id}.yaml").write_text(yaml.safe_dump(datos, allow_unicode=True), encoding="utf-8")
 
     with pytest.raises(InvalidCatalog) as exc:
-        cargar(tmp_path)
+        load(tmp_path)
     _sin_sql(str(exc.value), f"catálogo inválido de {ind.id}")
 
 
@@ -128,4 +128,4 @@ def test_los_logs_no_llevan_sql(conexion, caplog):
 
 def test_obtener_expone_el_sql_solo_puertas_adentro():
     # El motor sí necesita el sql: la garantía es que no salga, no que no exista.
-    assert obtener(INDICADORES[0].id).sql
+    assert get(INDICADORES[0].id).sql
