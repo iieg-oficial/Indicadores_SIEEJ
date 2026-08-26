@@ -4,7 +4,8 @@ CA-4 exige que se verifique con una prueba, no con revisión manual. El barrido 
 el `sql` real de cada indicador del catálogo, así que sigue siendo válido cuando el
 catálogo crezca: no hay ninguna lista de indicadores escrita a mano.
 
-Cuando cierren las superficies (#13, #14) hay que extenderlo a las respuestas MCP y REST.
+El barrido cubre el motor y la superficie MCP; cuando cierre #14 hay que extenderlo
+a las respuestas REST.
 """
 
 import json
@@ -12,10 +13,13 @@ import logging
 
 import pytest
 import yaml
+from fastmcp import Client
+from fastmcp.exceptions import ToolError
 
 from indicadores_sieej import connections, engine
 from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
 from indicadores_sieej.errors import BankError, InvalidCatalog
+from indicadores_sieej.mcp_server import mcp
 
 from .conftest import ROW, cfg as _cfg
 
@@ -129,3 +133,39 @@ def test_the_logs_carry_no_sql(connection, caplog):
 def test_get_exposes_the_sql_only_internally():
     # El motor sí necesita el sql: la garantía es que no salga, no que no exista.
     assert get(INDICATORS[0].id).sql
+
+
+# --- La superficie MCP: lo que realmente ve el agente ---
+
+
+@pytest.mark.parametrize("ind", INDICATORS, ids=lambda i: i.id)
+async def test_the_mcp_responses_carry_no_sql(ind, connection, process_settings):
+    """El barrido sobre el motor no basta: lo que ve el agente sale por aquí."""
+    connection([ROW])
+    async with Client(mcp) as client:
+        responses = [
+            await client.call_tool("listar_indicadores", {}),
+            await client.call_tool("describir_indicador", {"id": ind.id}),
+            await client.call_tool("consultar_indicador", {"id": ind.id}),
+        ]
+    for response in responses:
+        _without_sql(json.dumps(response.data, ensure_ascii=False, default=str), f"tools MCP con {ind.id}")
+        _without_sql("".join(block.text for block in response.content), f"contenido MCP con {ind.id}")
+
+
+@pytest.mark.parametrize("ind", INDICATORS, ids=lambda i: i.id)
+async def test_the_mcp_errors_carry_no_sql(ind, connection, process_settings):
+    messages = []
+
+    connection([ROW] * 5001)
+    async with Client(mcp) as client:
+        for tool, args in (
+            ("describir_indicador", {"id": "no_existe"}),
+            ("consultar_indicador", {"id": ind.id, "parametros": {"parametro_inventado": "x"}}),
+            ("consultar_indicador", {"id": ind.id}),  # excede el límite
+        ):
+            with pytest.raises(ToolError) as exc:
+                await client.call_tool(tool, args)
+            messages.append(str(exc.value))
+
+    _without_sql("\n".join(messages), f"errores MCP de {ind.id}")
