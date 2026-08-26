@@ -15,7 +15,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from indicadores_sieej import connections
-from indicadores_sieej.api import bank_error_handler, operations, router
+from indicadores_sieej.api import bank_error_handler, operations, router, schema
+from indicadores_sieej.auth import AuthMiddleware
 from indicadores_sieej.catalog import load
 from indicadores_sieej.config import settings
 from indicadores_sieej.errors import BankError
@@ -46,12 +47,18 @@ def create_app() -> FastAPI:
         title="Banco de indicadores IIEG",
         description="Catálogo curado de indicadores del IIEG. La misma funcionalidad en MCP y en REST.",
         lifespan=lifespan,
+        # Los de FastAPI nacen sin dependencias; los re-registra api.py autenticados.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
     # Por tipo de excepción, no por el texto del mensaje: ver api.py.
     app.add_exception_handler(BankError, bank_error_handler)
     app.include_router(operations)
+    app.include_router(schema)
     app.include_router(router)
-    app.mount("/mcp", mcp_app)
+    # La misma verificación que protege /v1, envuelta como ASGI: ver auth.py.
+    app.mount("/mcp", AuthMiddleware(mcp_app))
     return app
 
 
