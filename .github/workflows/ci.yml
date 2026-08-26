@@ -28,6 +28,6 @@ jobs:
       - run: pip install -e ".[dev]"
       # Las pruebas de integración requieren bases reales y no corren aquí.
       - run: pytest -m "not integration"
-
-  # Falta el paso que corre `python -m indicadores_sieej.cli validar` como gate de
-  # todo PR que toque catalogo/. Se agrega en #10, cuando el CLI exista (#11).
+      # Gate de todo PR que toque catalogo/: corre las siete validaciones y sale
+      # con código distinto de cero nombrando el archivo que falla.
+      - run: python -m indicadores_sieej.cli validar

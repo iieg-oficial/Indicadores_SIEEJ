@@ -63,11 +63,13 @@ locales, y pagar tres runners por lo que un hook resuelve en un segundo no vale 
 instalarlos no es opcional.
 
 ```bash
-pre-commit run --all-files    # local: ruff, prettier, higiene de archivos
-pytest -m "not integration"   # lo mismo que corre el CI
+pre-commit run --all-files            # local: ruff, prettier, higiene de archivos
+pytest -m "not integration"           # lo mismo que corre el CI
+python -m indicadores_sieej.cli validar   # las siete validaciones del catálogo
 ```
 
-La validación del catálogo se sumará al job cuando exista el CLI que la ejecuta.
+Los tres pasos del job son esos: instalar, correr las pruebas y validar el catálogo. El último es el
+gate de todo PR que toque `catalogo/`.
 
 ## Documentación
 
