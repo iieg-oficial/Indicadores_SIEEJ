@@ -19,16 +19,22 @@ el catálogo crezca. Sin coincidencias devuelve lista vacía, no un error.
 
 ## Rutas REST — `/v1`
 
-| Método | Ruta                                  | Equivale a            | Respuesta                     |
-| ------ | ------------------------------------- | --------------------- | ----------------------------- |
-| `GET`  | `/v1/indicadores?tema=&nivel=`        | `listar_indicadores`  | `200`                         |
-| `GET`  | `/v1/indicadores/{id}`                | `describir_indicador` | `200` / `404`                 |
-| `GET`  | `/v1/indicadores/{id}/datos?<params>` | `consultar_indicador` | `200` / `400` / `413` / `503` |
-| `GET`  | `/health`                             | —                     | `200` liveness, **sin auth**  |
-| `GET`  | `/ready`                              | —                     | `200` / `503`                 |
+| Método | Ruta                                  | Equivale a            | Respuesta                             |
+| ------ | ------------------------------------- | --------------------- | ------------------------------------- |
+| `GET`  | `/v1/indicadores?tema=&nivel=`        | `listar_indicadores`  | `200`                                 |
+| `GET`  | `/v1/indicadores/{id}`                | `describir_indicador` | `200` / `404`                         |
+| `GET`  | `/v1/indicadores/{id}/datos?<params>` | `consultar_indicador` | `200` / `400` / `413` / `502` / `503` |
+| `GET`  | `/health`                             | —                     | `200` liveness, **sin auth**          |
+| `GET`  | `/ready`                              | —                     | `200` / `503`                         |
 
 Los parámetros del indicador viajan como _query params_ con el **mismo nombre** que declara el YAML.
 Un query param no declarado produce **`400`**, no se ignora.
+
+`/ready` sin argumentos no abre pools: reporta el DSN de todos los pipelines y el estado solo de los
+ya abiertos. `?pipeline=<p>` fuerza la verificación real de uno.
+
+El OpenAPI se publica en `/docs` y en `/openapi.json`, **autenticados como todo lo demás salvo
+`/health`**.
 
 ## El sobre de respuesta
 

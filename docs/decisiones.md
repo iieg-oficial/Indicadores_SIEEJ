@@ -12,6 +12,21 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP              |
 | D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                 |
 | D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
+| D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
+
+## Por qué la verificación de auth es propia (D9)
+
+FastMCP trae la suya, y sería lo natural. Se descarta por una razón concreta: con `required_scopes`
+colapsa el **token válido sin el scope** en un `401`, y [errores.md](errores.md) exige distinguirlo
+con un `403` — el cliente que recibe `401` reintenta con otro token, el que recibe `403` sabe que
+tiene que pedir permisos.
+
+Lo que sí se usa de FastMCP es el **verificador**: `JWTVerifier` en modo `jwt` y `StaticTokenVerifier`
+en `static`. Lo que se escribe aquí es la decisión —401, 403 o pasa—, en una sola función que llaman
+las dos superficies: REST como dependencia y MCP como middleware sobre su sub-app.
+
+El precio es que montar `/mcp` sin ese middleware lo dejaría abierto. Lo cubre una prueba que recorre
+todas las rutas registradas y verifica que ninguna salvo `/health` responde sin token.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 

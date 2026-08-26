@@ -107,10 +107,9 @@ desarrollo: el YAML contiene definiciones institucionales, no solo SQL.
 
 ---
 
-> **Estado hoy.** Los pasos 5 y 6 ya se pueden ejecutar: el CLI valida el catálogo y el mismo comando
-> corre como gate en el CI, y `uvicorn indicadores_sieej.main:app` levanta las dos superficies. La
-> autenticación llega con #15: hasta entonces el `Authorization` de los `curl` de arriba se ignora.
-> Para verificar un indicador sin levantar el servidor siguen sirviendo
+> **Estado hoy.** Los siete pasos ya se pueden ejecutar: el CLI valida el catálogo y el mismo comando
+> corre como gate en el CI, y `uvicorn indicadores_sieej.main:app` levanta las dos superficies con su
+> autenticación. Para verificar un indicador sin levantar el servidor siguen sirviendo
 > `python -m indicadores_sieej.cli describir <id>` y `... ejecutar <id> -p nombre=valor`.
 
 ---
