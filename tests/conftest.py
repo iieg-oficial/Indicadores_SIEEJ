@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import connections
+from indicadores_sieej import connections, engine
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
@@ -79,3 +79,14 @@ def connection(monkeypatch):
         return fake
 
     return _build
+
+
+@pytest.fixture
+def process_settings(monkeypatch):
+    """Fija las settings del proceso sin leer el .env del desarrollador.
+
+    Las superficies llaman al motor sin pasarle cfg — es el motor quien las resuelve —
+    así que sustituirlas ahí es lo que las desconecta del entorno.
+    """
+    monkeypatch.setattr(engine, "settings", cfg)
+    return cfg()
