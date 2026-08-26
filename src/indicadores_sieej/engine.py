@@ -62,11 +62,16 @@ def _bounded(ind: Indicator, limit: int):
     return text(f"SELECT * FROM (\n{ind.sql.rstrip().rstrip(';')}\n) _bank LIMIT {limit + 1}")
 
 
-def execute(id: str, cfg: Optional[Settings] = None, **params) -> dict:
-    """Ejecuta el indicador y devuelve el sobre de respuesta de docs/superficies.md."""
+def execute(id: str, params: Optional[dict] = None, cfg: Optional[Settings] = None) -> dict:
+    """Ejecuta el indicador y devuelve el sobre de respuesta de docs/superficies.md.
+
+    Los parámetros llegan en un diccionario y no como `**kwargs` porque sus nombres
+    los pone el YAML: uno llamado `id` o `cfg` chocaría con los de esta firma, y la
+    superficie REST los toma tal cual del query string.
+    """
     cfg = cfg or settings()
     ind = get(id)
-    binds = _binds(ind, params)
+    binds = _binds(ind, params or {})
 
     if not connections.available(ind.pipeline, cfg):
         raise PipelineUnavailable(f"{ind.id}: indicador no disponible en este despliegue")

@@ -79,7 +79,7 @@ def test_the_engine_errors_carry_no_sql(ind, connection, monkeypatch):
 
     connection([ROW] * 5001)
     for call in (
-        lambda: engine.execute(ind.id, cfg=_cfg(), parametro_inventado="x"),
+        lambda: engine.execute(ind.id, {"parametro_inventado": "x"}, cfg=_cfg()),
         lambda: engine.execute(ind.id, cfg=_cfg()),  # excede el límite
     ):
         with pytest.raises(BankError) as exc:

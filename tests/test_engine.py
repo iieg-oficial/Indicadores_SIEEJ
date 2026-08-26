@@ -21,20 +21,20 @@ from .conftest import ROW, cfg as _cfg
 
 def test_coerces_to_the_declared_type(connection):
     fake = connection()
-    engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), anio_min="2020")
+    engine.execute("incidencia_delictiva_municipal", {"anio_min": "2020"}, cfg=_cfg())
     assert fake.binds["anio_min"] == 2020
 
 
 def test_value_that_cannot_be_coerced(connection):
     connection()
     with pytest.raises(InvalidParameters, match="no es un int válido"):
-        engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), anio_min="dos mil")
+        engine.execute("incidencia_delictiva_municipal", {"anio_min": "dos mil"}, cfg=_cfg())
 
 
 def test_undeclared_param(connection):
     connection()
     with pytest.raises(InvalidParameters) as exc:
-        engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), municipio="14039")
+        engine.execute("incidencia_delictiva_municipal", {"municipio": "14039"}, cfg=_cfg())
     assert str(exc.value) == "incidencia_delictiva_municipal: parámetros desconocidos ['municipio']"
 
 
@@ -49,6 +49,15 @@ def test_missing_required_param(connection, monkeypatch):
         engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
 
 
+def test_a_param_named_like_the_signature_is_just_unknown(connection):
+    """Los nombres los pone el YAML, y la superficie REST los toma del query string:
+    que alguien mande `?id=x` no puede chocar con la firma del motor."""
+    connection()
+    with pytest.raises(InvalidParameters) as exc:
+        engine.execute("incidencia_delictiva_municipal", {"id": "x", "cfg": "y"}, cfg=_cfg())
+    assert str(exc.value) == "incidencia_delictiva_municipal: parámetros desconocidos ['cfg', 'id']"
+
+
 def test_absent_optional_travels_as_null(connection):
     fake = connection()
     engine.execute("incidencia_delictiva_municipal", cfg=_cfg())
@@ -61,7 +70,7 @@ def test_absent_optional_travels_as_null(connection):
 def test_values_never_reach_the_sql_text(connection):
     """Si alguien reintroduce concatenación, el valor aparece en el sql y esto falla."""
     fake = connection()
-    engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), cve_geo="14039")
+    engine.execute("incidencia_delictiva_municipal", {"cve_geo": "14039"}, cfg=_cfg())
     assert "14039" not in str(fake.query)
     assert fake.binds["cve_geo"] == "14039"
 
@@ -103,7 +112,7 @@ def test_the_exact_limit_does_not_fail(connection):
 
 def test_the_envelope_carries_metadata_params_and_notes(connection):
     connection([ROW])
-    envelope = engine.execute("incidencia_delictiva_municipal", cfg=_cfg(), cve_geo="14039")
+    envelope = engine.execute("incidencia_delictiva_municipal", {"cve_geo": "14039"}, cfg=_cfg())
     assert envelope["indicador"] == "incidencia_delictiva_municipal"
     assert envelope["unidad"] and envelope["fuente"] and envelope["nombre"]
     assert envelope["notas"], "notas viaja siempre que el indicador la tenga"
