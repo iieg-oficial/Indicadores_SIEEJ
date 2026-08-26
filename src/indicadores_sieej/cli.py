@@ -14,9 +14,12 @@ import json
 import logging
 import sys
 
-from indicadores_sieej import engine
+from alembic.util import CommandError
+from sqlalchemy.exc import SQLAlchemyError
+
+from indicadores_sieej import engine, registry
 from indicadores_sieej.catalog import CATALOG_DIR, find, get, load
-from indicadores_sieej.errors import BankError, InvalidCatalog
+from indicadores_sieej.errors import BankError, InvalidCatalog, RegistryUnavailable
 
 # Nada de logging puede ensuciar stdout: ahí solo va el JSON.
 logging.basicConfig(stream=sys.stderr)
@@ -40,6 +43,26 @@ def _validate() -> int:
     return 0
 
 
+def _migrate() -> int:
+    """Aplica el esquema del registro de tokens. **No corre al arrancar el servidor.**
+
+    Es deliberado, y es la convención de ETL-SIEEJ: el esquema se aplica a mano en el
+    despliegue, no como efecto secundario de levantar el servicio. Así el rol del
+    servidor no necesita permisos de DDL en operación normal.
+    """
+    try:
+        registry.migrate()
+    except RegistryUnavailable as exc:
+        print(f"{exc}", file=sys.stderr)
+        return 1
+    except (SQLAlchemyError, CommandError) as exc:
+        # Sin la excepción completa: el texto de un error de conexión trae el DSN.
+        print(f"no se pudo migrar el registro: {type(exc).__name__}", file=sys.stderr)
+        return 1
+    print("registro de tokens al día", file=sys.stderr)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m indicadores_sieej.cli", description="Banco de indicadores")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -57,10 +80,15 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("validar", help="Valida el catálogo; sale con código distinto de cero si falla")
 
+    sub.add_parser("migrar", help="Aplica el esquema del registro de tokens")
+
     args = parser.parse_args(argv)
 
     if args.command == "validar":
         return _validate()
+
+    if args.command == "migrar":
+        return _migrate()
 
     try:
         if args.command == "listar":
