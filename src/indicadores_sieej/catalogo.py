@@ -16,7 +16,7 @@ import yaml
 from pydantic import ValidationError
 
 from indicadores_sieej.errores import CatalogoInvalido, IndicadorNoExiste
-from indicadores_sieej.modelo import Indicador
+from indicadores_sieej.models import Indicator
 
 # El catálogo vive en la raíz del repositorio, no junto al módulo como en el ETL.
 CATALOGO = Path(__file__).resolve().parents[2] / "catalogo"
@@ -43,7 +43,7 @@ def _falla(exc: ValidationError) -> str:
     return f"campo '{campo}': {error['msg']}"
 
 
-def _leer(ruta: Path) -> Indicador:
+def _leer(ruta: Path) -> Indicator:
     """Primera validación: valida contra el modelo, sin campos extra."""
     try:
         datos = yaml.safe_load(ruta.read_text(encoding="utf-8"))
@@ -52,12 +52,12 @@ def _leer(ruta: Path) -> Indicador:
     if not isinstance(datos, dict):
         raise CatalogoInvalido(f"{ruta}: el YAML no describe un indicador")
     try:
-        return Indicador(**datos)
+        return Indicator(**datos)
     except ValidationError as exc:
         raise CatalogoInvalido(f"{ruta}: {_falla(exc)}") from None
 
 
-def _validar(ind: Indicador, ruta: Path) -> None:
+def _validar(ind: Indicator, ruta: Path) -> None:
     """Las validaciones que no dependen del modelo.
 
     El `pipeline` **no** se valida aquí: que su base esté configurada en este
@@ -88,12 +88,12 @@ def _validar(ind: Indicador, ruta: Path) -> None:
 
 
 @lru_cache(maxsize=None)
-def cargar(raiz: Path = CATALOGO) -> dict[str, Indicador]:
+def cargar(raiz: Path = CATALOGO) -> dict[str, Indicator]:
     """Carga y valida todo el catálogo. Cualquier falla revienta aquí, al arrancar."""
     if not raiz.is_dir():
         raise CatalogoInvalido(f"{raiz}: no existe el directorio del catálogo")
 
-    indicadores: dict[str, Indicador] = {}
+    indicadores: dict[str, Indicator] = {}
     for ruta in sorted(raiz.glob("*/*.yaml")):
         ind = _leer(ruta)
         if ind.id in indicadores:
@@ -115,7 +115,7 @@ def listar(tema: Optional[str] = None, nivel: Optional[str] = None) -> list[dict
     ]
 
 
-def obtener(id: str) -> Indicador:
+def obtener(id: str) -> Indicator:
     try:
         return cargar()[id]
     except KeyError:

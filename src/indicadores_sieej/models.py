@@ -3,17 +3,17 @@ from typing import Literal, Optional
 from pydantic import BaseModel, ConfigDict
 
 # Tipos permitidos para los parámetros de un indicador y su equivalente en Python.
-TIPOS = {"str": str, "int": int}
+TYPES = {"str": str, "int": int}
 
 
-class Cobertura(BaseModel):
+class Coverage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     geografica: str
     temporal: str
 
 
-class Parametro(BaseModel):
+class Parameter(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     nombre: str
@@ -22,7 +22,7 @@ class Parametro(BaseModel):
     descripcion: str
 
 
-class Indicador(BaseModel):
+class Indicator(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
@@ -35,9 +35,9 @@ class Indicador(BaseModel):
     origen: str
     nivel: Literal["nacional", "estatal", "municipal"]
     periodicidad: str
-    cobertura: Cobertura
+    cobertura: Coverage
     notas: Optional[str] = None
-    parametros: list[Parametro] = []
+    parametros: list[Parameter] = []
     sql: str
 
     def metadata(self) -> dict:

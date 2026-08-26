@@ -19,12 +19,12 @@ from indicadores_sieej import conexiones
 from indicadores_sieej.catalogo import obtener
 from indicadores_sieej.config import Settings, settings
 from indicadores_sieej.errores import ErrorDeConsulta, LimiteExcedido, ParametrosInvalidos, PipelineNoDisponible
-from indicadores_sieej.modelo import TIPOS, Indicador
+from indicadores_sieej.models import TYPES, Indicator
 
 log = logging.getLogger(__name__)
 
 
-def _binds(ind: Indicador, params: dict) -> dict:
+def _binds(ind: Indicator, params: dict) -> dict:
     """Valida los params contra los declarados y rellena con None los ausentes.
 
     Un opcional ausente se manda como NULL, que es lo que neutraliza su filtro.
@@ -44,13 +44,13 @@ def _binds(ind: Indicador, params: dict) -> dict:
             binds[nombre] = None
         else:
             try:
-                binds[nombre] = TIPOS[param.tipo](valor)
+                binds[nombre] = TYPES[param.tipo](valor)
             except (TypeError, ValueError):
                 raise ParametrosInvalidos(f"{ind.id}: el parámetro '{nombre}' no es un {param.tipo} válido") from None
     return binds
 
 
-def _acotada(ind: Indicador, limite: int):
+def _acotada(ind: Indicator, limite: int):
     """Envuelve el sql del catálogo para pedir una fila de más que el límite.
 
     La fila extra es lo que distingue "cabe justo" de "está truncado". El sql entra
