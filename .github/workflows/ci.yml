@@ -1,10 +1,11 @@
 name: CI
 
 # Solo en PR: disparar también en push duplica cada job y gasta el doble de minutos.
+# Sin filtro de rama base a propósito: `branches:` filtra por la rama **destino**, así
+# que con él un PR apilado sobre otro PR nunca dispara el CI, y el stack merge lo bloquea
+# por falta del check requerido. Todo PR corre las pruebas, apunte a donde apunte.
 on:
   pull_request:
-    branches:
-      - main
 
 # Un push nuevo cancela el run anterior del mismo PR, en vez de pagar los dos.
 concurrency:
