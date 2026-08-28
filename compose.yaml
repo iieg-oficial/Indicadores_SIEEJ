@@ -1,0 +1,64 @@
+# Levanta el banco con **solo un `.env`**: `cp .env.example .env && docker compose up`.
+#
+# Trae el PostgreSQL del **registro de API keys** —la única base que este servicio
+# administra— y nada más. Las 33 bases del ETL viven fuera y son de solo lectura: a
+# ellas se llega con `IIEGDB_PG_*` del `.env`, y un pipeline sin ruta de red no impide
+# arrancar, sus indicadores responden 503.
+name: indicadores-sieej
+
+# El DSN del registro lo arma compose y **gana sobre el del `.env`**, porque el punto de
+# este archivo es el PostgreSQL de aquí abajo. Para apuntar a un registro real, no se
+# usa compose: se despliega la imagen sola.
+x-servicio: &servicio
+  build: .
+  env_file: .env
+  environment:
+    IIEGDB_REGISTRY_DSN: postgresql://${REGISTRO_USER:-registro}:${REGISTRO_PASSWORD:-registro_local}@registro:5432/${REGISTRO_DB:-registro}
+  depends_on:
+    registro:
+      condition: service_healthy
+
+services:
+  registro:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${REGISTRO_USER:-registro}
+      POSTGRES_PASSWORD: ${REGISTRO_PASSWORD:-registro_local}
+      POSTGRES_DB: ${REGISTRO_DB:-registro}
+    volumes:
+      - registro_datos:/var/lib/postgresql/data
+    # Sin `ports`: la base no se publica al host. Se llega a ella desde la red de
+    # compose, que es lo único que la necesita.
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${REGISTRO_USER:-registro} -d ${REGISTRO_DB:-registro}",
+        ]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # El esquema se aplica **a mano**, nunca al arrancar el servidor: así el rol del
+  # servidor no necesita DDL en operación normal. Aquí «a mano» es un servicio de un
+  # solo disparo que corre antes, no una excepción a esa regla.
+  migraciones:
+    <<: *servicio
+    command: ["python", "-m", "indicadores_sieej.cli", "migrar"]
+    restart: "no"
+
+  servidor:
+    <<: *servicio
+    ports:
+      - "${PUERTO:-8000}:8000"
+    depends_on:
+      registro:
+        condition: service_healthy
+      migraciones:
+        condition: service_completed_successfully
+    # El servidor no guarda estado propio: el catálogo es de solo lectura y el caché de
+    # API keys se reconstruye solo. Reiniciarlo en cualquier momento es seguro.
+    restart: unless-stopped
+
+volumes:
+  registro_datos:
