@@ -33,7 +33,10 @@ def _rest(client):
 
 # Las únicas rutas abiertas del servidor. Agregar una entrada aquí es una decisión de
 # seguridad y se revisa como tal — no un ajuste de prueba.
-OPEN_ROUTES = {("/health", "GET")}
+#
+# `POST /v1/api-keys` es la segunda, y tiene que serlo: es de donde sale la credencial, así
+# que exigir una sería un círculo. A cambio lleva límite por IP (#64) y no acepta `scopes`.
+OPEN_ROUTES = {("/health", "GET"), ("/v1/api-keys", "POST")}
 
 
 def _api_routes(container):
@@ -116,6 +119,9 @@ def test_the_sweep_covers_every_route(clients):
         ("/v1/indicadores", "GET"),
         ("/v1/indicadores/{id}", "GET"),
         ("/v1/indicadores/{id}/datos", "GET"),
+        ("/v1/api-keys", "POST"),
+        ("/v1/api-keys/actual", "GET"),
+        ("/v1/api-keys/actual", "DELETE"),
     }
 
 

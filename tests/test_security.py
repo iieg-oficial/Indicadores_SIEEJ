@@ -204,3 +204,25 @@ def test_the_openapi_carries_no_sql(api):
     """El esquema publicado describe las rutas, no el catálogo — pero es el lugar donde
     un `example` copiado a mano metería un sql sin que nadie lo note."""
     _without_sql(api.get("/openapi.json").text, "openapi")
+
+
+def test_the_api_key_routes_carry_no_sql(api_keys):
+    """Las tres rutas de autoservicio no tocan el catálogo, y justamente por eso conviene
+    barrerlas: una ruta que "no tiene nada que ver con el sql" es la que nadie revisa el
+    día que alguien le agregue un campo de diagnóstico.
+
+    Se barre también el 503 de fuera del modo `api_key` y el 400 del cuerpo inválido: los
+    errores son por donde se ha filtrado siempre.
+    """
+    with api_keys.client() as client:
+        key = client.post("/v1/api-keys", json={"correo": "alguien@iieg.mx"}).json()["api_key"]
+        headers = {"Authorization": f"Bearer {key}"}
+        responses = [
+            client.post("/v1/api-keys", json={"correo": "otro@iieg.mx"}),
+            client.post("/v1/api-keys", json={"correo": "no-es-correo"}),
+            client.get("/v1/api-keys/actual", headers=headers),
+            client.delete("/v1/api-keys/actual", headers=headers),
+            client.get("/openapi.json", headers=headers),
+        ]
+
+    _without_sql("\n".join(response.text for response in responses), "rutas de API keys")

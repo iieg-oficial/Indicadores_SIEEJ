@@ -13,9 +13,10 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
 from indicadores_sieej import connections, registry
-from indicadores_sieej.api import bank_error_handler, operations, router, schema
+from indicadores_sieej.api import bank_error_handler, operations, public, router, schema, validation_error_handler
 from indicadores_sieej.auth import AuthMiddleware
 from indicadores_sieej.catalog import load
 from indicadores_sieej.config import settings
@@ -55,9 +56,14 @@ def create_app() -> FastAPI:
     )
     # Por tipo de excepción, no por el texto del mensaje: ver api.py.
     app.add_exception_handler(BankError, bank_error_handler)
+    # Y el 422 de fábrica de FastAPI se traduce a 400, que es lo que docs/errores.md
+    # asigna a un parámetro inválido.
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.include_router(operations)
     app.include_router(schema)
     app.include_router(router)
+    # Trae una sola ruta, y sin autenticación a propósito: POST /v1/api-keys.
+    app.include_router(public)
     # La misma verificación que protege /v1, envuelta como ASGI: ver auth.py.
     app.mount("/mcp", AuthMiddleware(mcp_app))
     return app

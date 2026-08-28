@@ -13,10 +13,10 @@ from uuid import UUID
 
 import pytest
 
-from indicadores_sieej import auth, registry
-from indicadores_sieej.errors import RegistryUnavailable
+from indicadores_sieej import auth, limits, registry
+from indicadores_sieej.errors import RateLimited, RegistryUnavailable
 
-from .conftest import API_KEY_MODE, cfg
+from .conftest import API_KEY_MODE, TOKEN, cfg
 
 CORREO = "alguien@iieg.mx"
 
@@ -422,3 +422,257 @@ def test_neither_the_key_nor_the_email_reach_the_logs(api_keys, caplog, surface)
 
     assert key not in caplog.text and key not in body
     assert CORREO not in caplog.text and CORREO not in body
+
+
+# --- La emisión: la única ruta pública de escritura ---
+
+
+def _issue(client, correo=CORREO, **body):
+    return client.post("/v1/api-keys", json={"correo": correo, **body})
+
+
+def test_an_issued_key_works_at_once_on_both_surfaces(api_keys):
+    """El criterio que da sentido a la ruta: quien pide una key la puede usar sin ningún
+    paso intermedio, en las dos superficies."""
+    with api_keys.client() as client:
+        emitida = _issue(client)
+        assert emitida.status_code == 201
+        key = emitida.json()["api_key"]
+
+        assert _rest(client, key).status_code == 200
+        assert _mcp(client, key).status_code == 200
+
+
+def test_the_issued_body_carries_the_key_the_email_and_the_expiry(api_keys):
+    with api_keys.client() as client:
+        body = _issue(client).json()
+
+    assert body["api_key"].startswith(registry.PREFIX)
+    assert body["correo"] == CORREO
+    assert body["expira_en"].endswith("Z")
+    assert set(body) == {"api_key", "correo", "expira_en"}
+
+
+def test_the_key_is_never_cached_by_anything_in_the_middle(api_keys):
+    with api_keys.client() as client:
+        assert _issue(client).headers["cache-control"] == "no-store"
+
+
+def test_issuing_needs_no_credential(api_keys):
+    """Es la segunda ruta abierta del servidor, y tiene que serlo: exigir una credencial
+    para obtener la primera sería un círculo. Su excepción está declarada en OPEN_ROUTES."""
+    with api_keys.client() as client:
+        assert client.post("/v1/api-keys", json={"correo": CORREO}).status_code == 201
+
+
+def test_the_email_is_normalized_before_being_stored(api_keys):
+    with api_keys.client() as client:
+        assert _issue(client, correo="  Alguien@IIEG.MX  ").json()["correo"] == CORREO
+    assert [row["correo"] for row in api_keys.store.rows.values()] == [CORREO]
+
+
+@pytest.mark.parametrize("correo", ["no-es-correo", "", "a@", "@iieg.mx"])
+def test_a_malformed_email_is_400_and_never_echoes_it(api_keys, correo):
+    """400 y no el 422 de fábrica: docs/errores.md ya asigna el 400 a los parámetros
+    inválidos, y el detalle de pydantic repetiría el correo en la respuesta."""
+    with api_keys.client() as client:
+        response = _issue(client, correo=correo)
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "petición inválida: ['correo']"
+    assert correo not in response.text or not correo
+
+
+def test_scopes_in_the_body_are_rejected(api_keys):
+    """Un `scopes` en el cuerpo de una petición pública sin autenticar es escalada de
+    privilegios. Los pone el servidor, y esta ruta no los acepta de fuera."""
+    with api_keys.client() as client:
+        response = _issue(client, scopes=["admin"])
+        assert response.status_code == 400
+        assert response.json()["detail"] == "petición inválida: ['scopes']"
+
+        key = _issue(client, correo="otro@iieg.mx").json()["api_key"]
+        actual = client.get("/v1/api-keys/actual", headers={"Authorization": f"Bearer {key}"})
+
+    assert actual.json()["scopes"] == [auth.SCOPE]
+
+
+async def test_issuing_is_not_an_mcp_tool():
+    """Un agente que se emite sus propias credenciales es exactamente la capacidad que
+    este proyecto existe para impedir. Las tools siguen siendo tres."""
+    from fastmcp import Client
+
+    from indicadores_sieej.mcp_server import mcp
+
+    async with Client(mcp) as client:
+        names = {tool.name for tool in await client.list_tools()}
+    assert names == {"listar_indicadores", "describir_indicador", "consultar_indicador"}
+
+
+# --- La rotación ---
+
+
+def test_asking_again_rotates_and_kills_the_previous_key(api_keys):
+    """Reemitir es la rotación, y también la vía de recuperación de quien perdió la suya.
+    Que la anterior siguiera viva convertiría cada recuperación en una key de más."""
+    with api_keys.client() as client:
+        vieja = _issue(client).json()["api_key"]
+        assert _rest(client, vieja).status_code == 200
+
+        nueva = _issue(client).json()["api_key"]
+        assert _rest(client, nueva).status_code == 200
+
+        # La vieja sigue en el caché de este proceso hasta que expire su entrada.
+        api_keys.clock.advance(61)
+        assert _rest(client, vieja).status_code == 401
+
+    activas = [row for row in api_keys.store.rows.values() if row["revoked_at"] is None]
+    assert len(activas) == 1
+
+
+# --- La credencial actual ---
+
+
+def test_the_current_route_describes_the_key_without_revealing_it(api_keys):
+    """No devuelve la key ni su hash. Y no toca la base: todo sale del AccessToken."""
+    with api_keys.client() as client:
+        key = _issue(client).json()["api_key"]
+        headers = {"Authorization": f"Bearer {key}"}
+        # Una llamada previa deja la key en el caché del verificador: sin esto se estaría
+        # midiendo la consulta de la autenticación, que hace cualquier ruta protegida.
+        _rest(client, key)
+        antes = api_keys.store.finds
+        body = client.get("/v1/api-keys/actual", headers=headers).json()
+        sin_consultar = api_keys.store.finds == antes
+
+    assert sin_consultar
+    assert body["correo"] == CORREO
+    assert body["prefijo"] == key[: registry.PREFIX_LEN]
+    assert set(body) == {"correo", "prefijo", "scopes", "emitida_en", "ultimo_uso", "expira_en"}
+    assert key not in str(body) and registry.hashed(key) not in str(body)
+
+
+def test_the_current_route_needs_a_credential(api_keys):
+    with api_keys.client() as client:
+        assert client.get("/v1/api-keys/actual").status_code == 401
+
+
+# --- La revocación ---
+
+
+def test_deleting_the_current_key_leaves_it_unusable_at_once(api_keys):
+    """Inmediata en este proceso porque además se desaloja del caché; sin eso seguiría
+    sirviendo hasta que expirara su entrada."""
+    with api_keys.client() as client:
+        key = _issue(client).json()["api_key"]
+        headers = {"Authorization": f"Bearer {key}"}
+
+        assert client.delete("/v1/api-keys/actual", headers=headers).status_code == 204
+        assert _rest(client, key).status_code == 401
+        assert _mcp(client, key).status_code == 401
+
+
+def test_revoking_only_touches_the_own_key(api_keys):
+    """La identidad sale del AccessToken, no del cuerpo: no hay forma de nombrar otra."""
+    with api_keys.client() as client:
+        mia = _issue(client).json()["api_key"]
+        ajena = _issue(client, correo="otro@iieg.mx").json()["api_key"]
+
+        client.delete("/v1/api-keys/actual", headers={"Authorization": f"Bearer {mia}"})
+        assert _rest(client, ajena).status_code == 200
+
+
+# --- Fuera del modo api_key no hay registro que tocar ---
+
+
+@pytest.mark.parametrize(
+    "method, path",
+    [("POST", "/v1/api-keys"), ("GET", "/v1/api-keys/actual"), ("DELETE", "/v1/api-keys/actual")],
+)
+def test_without_the_api_key_mode_the_three_routes_are_503(clients, method, path):
+    """Se registran en los tres modos a propósito: condicionar la tabla de rutas a la
+    configuración haría que el canario de rutas dependiera del entorno."""
+    with clients(TOKEN) as client:
+        response = client.request(method, path, json={"correo": CORREO})
+    assert response.status_code == 503
+    assert response.json()["detail"] == "el registro de API keys no está disponible en este despliegue"
+
+
+# --- El límite sobre la emisión ---
+
+
+def test_the_fourth_request_from_one_ip_within_an_hour_is_429(api_keys):
+    """Es una ruta pública de escritura y, mientras el correo no se verifique, también un
+    primitivo de revocación remota. Sin límite, el abuso se infiere en vez de verse."""
+    with api_keys.client() as client:
+        codes = [_issue(client, correo=f"c{i}@iieg.mx").status_code for i in range(4)]
+    assert codes == [201, 201, 201, 429]
+
+
+def test_the_limit_lets_go_when_the_hour_passes(api_keys):
+    with api_keys.client() as client:
+        for i in range(3):
+            _issue(client, correo=f"c{i}@iieg.mx")
+        assert _issue(client, correo="tarde@iieg.mx").status_code == 429
+
+        api_keys.clock.advance(3601)
+        assert _issue(client, correo="tarde@iieg.mx").status_code == 201
+
+
+def test_the_limit_applies_before_the_body_is_validated(api_keys):
+    """Va como dependencia y no dentro del handler justamente por esto: si solo contara
+    las peticiones bien formadas, mandar basura saldría gratis."""
+    with api_keys.client() as client:
+        codes = [_issue(client, correo="no-es-correo").status_code for _ in range(4)]
+    assert codes == [400, 400, 400, 429]
+
+
+def test_the_daily_cap_bounds_the_server_and_not_just_one_origin(api_keys):
+    """El de la IP frena a un origen, y una botnet no es un origen."""
+    limiter = limits.IssueLimiter(cfg(**API_KEY_MODE, api_key_issue_per_day=2), clock=api_keys.clock)
+    limiter.check("10.0.0.1")
+    limiter.check("10.0.0.2")
+
+    with pytest.raises(RateLimited):
+        limiter.check("10.0.0.3")
+
+
+def test_the_ip_reaches_the_logs_only_when_the_limit_trips(api_keys, caplog):
+    """Es dato personal: en el camino normal no aporta nada que no aporte el conteo."""
+    with caplog.at_level(logging.DEBUG):
+        with api_keys.client() as client:
+            for i in range(3):
+                _issue(client, correo=f"c{i}@iieg.mx")
+            normal = caplog.text
+            _issue(client, correo="tope@iieg.mx")
+
+    assert "testclient" not in normal
+    assert "testclient" in caplog.text
+
+
+def test_the_limiter_does_not_grow_without_bound(api_keys):
+    """Las IPs las manda quien pide, así que el diccionario no puede crecer con ellas."""
+    limiter = limits.IssueLimiter(cfg(**API_KEY_MODE, api_key_issue_per_day=10**6), clock=api_keys.clock)
+    for i in range(limits.SWEEP_AT + 10):
+        limiter.check(f"10.0.{i // 256}.{i % 256}")
+
+    api_keys.clock.advance(3601)
+    limiter.check("10.9.9.9")
+    assert len(limiter._by_ip) == 1
+
+
+# --- Lo que no se filtra por las rutas nuevas ---
+
+
+def test_neither_the_key_nor_the_email_reach_the_logs_through_the_new_routes(api_keys, caplog):
+    """La key en claro aparece **una sola vez**: en el cuerpo de la emisión. El correo, en
+    ninguna: también es dato personal."""
+    with caplog.at_level(logging.DEBUG):
+        with api_keys.client() as client:
+            key = _issue(client).json()["api_key"]
+            headers = {"Authorization": f"Bearer {key}"}
+            client.get("/v1/api-keys/actual", headers=headers)
+            client.delete("/v1/api-keys/actual", headers=headers)
+
+    assert key not in caplog.text
+    assert CORREO not in caplog.text

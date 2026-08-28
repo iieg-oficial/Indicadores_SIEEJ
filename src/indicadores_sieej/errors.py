@@ -86,6 +86,18 @@ class RegistryUnavailable(BankError):
     recoverable = False
 
 
+class RateLimited(BankError):
+    """Demasiadas solicitudes desde el mismo origen.
+
+    Hoy solo la levanta la emisión de API keys, que es la única ruta pública de escritura
+    del servidor. El mensaje no dice cuál de los dos topes se alcanzó —el de la IP o el
+    del servidor— porque de eso solo aprendería quien está probando cuánto aguanta.
+    """
+
+    http = 429
+    recoverable = False
+
+
 class QueryError(BankError):
     """Base caída o consulta fallida. Al cliente va genérico; el detalle, al log."""
 

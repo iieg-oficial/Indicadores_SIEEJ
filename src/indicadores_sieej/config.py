@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     # responde. Con 0 se apaga y una caída del registro es 503 desde el primer momento.
     api_key_stale_s: int = 600
 
+    # El límite sobre la emisión, que es pública y sin credencial. Por proceso, no por
+    # despliegue: ver limits.py.
+    api_key_issue_per_ip_hour: int = 3
+    api_key_issue_per_day: int = 500
+
     # --- Límites y operación ---
     row_limit: int = 5000
     statement_timeout_ms: int = 15000
