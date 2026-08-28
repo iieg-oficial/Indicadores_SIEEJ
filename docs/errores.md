@@ -16,6 +16,7 @@ traduce sin reescribirlos.
 | Token sin el scope         | `el token no tiene el scope 'indicadores:read'`          | 403  |                 No                  |
 | Rate limit excedido        | `demasiadas consultas; reintenta en <n>s`                | 429  |           Sí — con espera           |
 | Registro de API keys caído | `el registro de API keys no está disponible`             | 503  |      No — reintenta más tarde       |
+| Demasiadas emisiones       | `demasiadas solicitudes de API key desde este origen…`   | 429  |      No — reintenta más tarde       |
 | Catálogo inválido          | ver [validaciones-catalogo.md](validaciones-catalogo.md) |  —   |       No — impide el arranque       |
 
 ## Dos reglas

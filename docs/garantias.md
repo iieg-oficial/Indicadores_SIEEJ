@@ -59,6 +59,16 @@ catalogados. **Eso es correcto y deseado**: los indicadores son información pú
 control no está en ocultar los datos, sino en que **solo se expone lo curado**, con su definición,
 unidad, fuente y notas al lado.
 
+**Cualquiera que conozca un correo puede revocar la API key de esa cuenta**, pidiendo una nueva para
+él. Mientras el correo no esté verificado, `POST /v1/api-keys` es a la vez emisión y rotación, y la
+rotación revoca la anterior. Con direcciones institucionales adivinables, eso es un interruptor
+público sobre cada consumidor.
+
+**No filtra nada**: quien lo hace no recibe la key de la víctima, solo la invalida, y la víctima pide
+otra. Se mitiga con el límite por IP sobre la emisión, y desaparece cuando el correo se verifique —
+que es la fase siguiente. Es consecuencia de dos decisiones ya tomadas —autoservicio sin proveedor de
+identidad, y reemisión como vía de recuperación— y no una decisión nueva.
+
 **Una revocación tarda en propagarse.** El caché de verificación vive en el proceso, así que revocar
 una API key surte efecto en cada worker cuando expira su entrada: hasta `IIEGDB_API_KEY_CACHE_TTL_S`
 en operación normal, y hasta `IIEGDB_API_KEY_STALE_S` mientras el registro esté caído, porque

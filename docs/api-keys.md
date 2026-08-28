@@ -23,6 +23,40 @@ que es lo que permite limitarlo y auditarlo.
 | Rotación   | Pedir otra para el mismo correo revoca la anterior. Es también la vía de recuperación   |
 | Revocación | `DELETE /v1/api-keys/actual` con la key propia                                          |
 
+## Las tres rutas
+
+| Método   | Ruta                  | Auth | Respuesta                                        |
+| -------- | --------------------- | :--: | ------------------------------------------------ |
+| `POST`   | `/v1/api-keys`        |  No  | `201` con la key · `400` correo inválido · `429` |
+| `GET`    | `/v1/api-keys/actual` |  Sí  | `200` con correo, prefijo, fechas y caducidad    |
+| `DELETE` | `/v1/api-keys/actual` |  Sí  | `204`, revoca la propia                          |
+
+`GET /actual` **no devuelve la key ni su hash**, y no toca la base: sale todo de la credencial con la
+que se preguntó. `DELETE` revoca **solo la propia** — la identidad sale de la credencial, no del
+cuerpo — y es inmediata en el proceso que la atiende; en los demás workers tarda lo que dure su
+entrada en caché.
+
+El cuerpo de la emisión es un correo y nada más: **`scopes` se rechaza**. Los pone el servidor, y una
+petición pública sin autenticar no puede elegirlos. Y la emisión **no es una tool MCP**: un agente que
+se emite sus propias credenciales es la capacidad que este proyecto existe para impedir.
+
+## El límite sobre la emisión
+
+`POST /v1/api-keys` es la única ruta pública de escritura del servidor, así que lleva tope: **3 por
+hora y por IP**, más un tope diario del servidor entero. El de la IP frena a un origen; el diario
+acota el peor caso, porque una botnet no es un origen.
+
+Los dos son **por proceso**: con varios workers el límite real se multiplica por su número. Y la IP
+sale de `request.client.host`, nunca de `X-Forwarded-For` —confiar en esa cabecera lo haría evadible
+con un encabezado—, así que detrás de un proxy hay que arrancar con `uvicorn --proxy-headers
+--forwarded-allow-ips=<proxy>`. Ver [configuracion.md](configuracion.md).
+
+La IP se registra **solo cuando el límite se dispara**, y en `WARNING`: es dato personal, y en el
+camino normal no aporta nada que no aporte el conteo.
+
+Es independiente del rate limit por credencial, que llega después: aquí todavía no hay ninguna, y ese
+es justamente el problema.
+
 ```bash
 curl -sX POST https://<host>/v1/api-keys \
      -H 'Content-Type: application/json' \
@@ -70,7 +104,9 @@ prueba de identidad.
 De eso se sigue una consecuencia aceptada a sabiendas: mientras el correo no se verifique,
 **cualquiera que conozca una dirección puede revocar la key de esa cuenta** pidiendo una nueva. No
 filtra nada —quien lo hace no recibe la key de la víctima, solo la invalida— y la víctima pide otra.
-Está en la sección de riesgo residual de [garantias.md](garantias.md).
+Se mitiga con el límite por IP de arriba y desaparece cuando el correo se verifique. Está en la
+sección de riesgo residual de [garantias.md](garantias.md) y en [decisiones.md](decisiones.md), no
+solo aquí: un riesgo que solo vive en un documento se olvida.
 
 ## La caducidad se mide al verificar
 

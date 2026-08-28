@@ -15,6 +15,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
 | D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
 | D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta  | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez  |
+| D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP    | Es de donde sale la primera credencial; exigir una sería un círculo             |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -79,6 +80,29 @@ de «todo caído». `/health` reporta el **último estado observado** por el tr�
 ninguna conexión —es la única ruta anónima del servidor, y sondear la base desde ella la convertiría
 en un amplificador de DoS— y **sigue respondiendo 200 siempre**: es liveness de este proceso, y un
 503 ahí haría que el orquestador reinicie un servidor sano.
+
+## Por qué la emisión es pública y qué se paga por ello (D12)
+
+`POST /v1/api-keys` responde sin credencial porque es de donde sale la primera: exigir una sería un
+círculo. Es la **segunda y última** ruta abierta del servidor, y su excepción está declarada una por
+una en la prueba que recorre todas las rutas registradas — abrir una tercera es un diff de una línea
+que un revisor no puede pasar por alto, en vez de una propiedad emergente de un filtro.
+
+De ahí salen tres restricciones que no se negocian:
+
+- **El cuerpo no acepta `scopes`.** Los pone el servidor. Un campo `scopes` en una petición pública y
+  sin autenticar es escalada de privilegios, y es exactamente el campo que alguien va a querer
+  agregar "por flexibilidad".
+- **La emisión no se expone como tool MCP.** Un agente que se emite sus propias credenciales es la
+  capacidad que este proyecto existe para impedir.
+- **Lleva límite por IP.** Es una ruta pública de escritura y, mientras el correo no se verifique,
+  también un primitivo de revocación remota: pedir una key para un correo ajeno revoca la suya. El
+  límite hace que el abuso se vea en vez de inferirse. La IP se registra **solo cuando el límite se
+  dispara** —es dato personal— y sale de `request.client.host`, nunca de `X-Forwarded-For`: confiar
+  en esa cabecera haría el límite evadible con un encabezado.
+
+Lo que se paga está escrito en el riesgo residual de [garantias.md](garantias.md): hasta que el
+correo se verifique, conocer una dirección basta para invalidar la key de esa cuenta.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 

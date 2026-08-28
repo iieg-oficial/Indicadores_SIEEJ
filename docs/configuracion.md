@@ -53,13 +53,15 @@ institucional. Decidido en #29; el detalle está en [api-keys.md](api-keys.md).
 
 ### El registro de API keys
 
-| Variable                     | Oblig. | Descripción                                                          |
-| ---------------------------- | :----: | -------------------------------------------------------------------- |
-| `IIEGDB_REGISTRY_DSN`        |   Sí   | DSN completo de la base del registro, con **rol de escritura**       |
-| `IIEGDB_API_KEY_TTL_DAYS`    |   No   | Caducidad por desuso; por defecto `90`                               |
-| `IIEGDB_API_KEY_TOUCH_S`     |   No   | Cada cuánto se refresca el último uso; por defecto `3600`            |
-| `IIEGDB_API_KEY_CACHE_TTL_S` |   No   | Vida de la key en el caché del proceso; por defecto `60`             |
-| `IIEGDB_API_KEY_STALE_S`     |   No   | Cuánto se aguanta un registro caído; por defecto `600`, `0` lo apaga |
+| Variable                           | Oblig. | Descripción                                                          |
+| ---------------------------------- | :----: | -------------------------------------------------------------------- |
+| `IIEGDB_REGISTRY_DSN`              |   Sí   | DSN completo de la base del registro, con **rol de escritura**       |
+| `IIEGDB_API_KEY_TTL_DAYS`          |   No   | Caducidad por desuso; por defecto `90`                               |
+| `IIEGDB_API_KEY_TOUCH_S`           |   No   | Cada cuánto se refresca el último uso; por defecto `3600`            |
+| `IIEGDB_API_KEY_CACHE_TTL_S`       |   No   | Vida de la key en el caché del proceso; por defecto `60`             |
+| `IIEGDB_API_KEY_STALE_S`           |   No   | Cuánto se aguanta un registro caído; por defecto `600`, `0` lo apaga |
+| `IIEGDB_API_KEY_ISSUE_PER_IP_HOUR` |   No   | Emisiones por IP y por hora; por defecto `3`                         |
+| `IIEGDB_API_KEY_ISSUE_PER_DAY`     |   No   | Tope diario de emisiones del servidor; por defecto `500`             |
 
 > `IIEGDB_REGISTRY_DSN` **no se deriva de `IIEGDB_PG_*`** ni cae de vuelta en él. Ese bloque es el rol
 > de **solo lectura** de las 33 bases del ETL; derivar de ahí crearía presión para concederle
@@ -68,6 +70,12 @@ institucional. Decidido en #29; el detalle está en [api-keys.md](api-keys.md).
 **Las tres ventanas tienen que cumplir `CACHE_TTL_S < TOUCH_S < TTL_DAYS`**, y el servidor no arranca
 si no. Es lo que hace que una key en uso continuo refresque su último uso antes de caducar: subir el
 caché "para bajar carga" haría que una key activa caducara sola, y tardaría noventa días en notarse.
+
+**Los dos topes de emisión son por proceso**, no por despliegue: con varios workers el límite real se
+multiplica por su número. Y detrás de un proxy inverso hay que arrancar con
+`uvicorn --proxy-headers --forwarded-allow-ips=<ip-del-proxy>`; sin eso todas las peticiones parecen
+venir del proxy y el límite por IP se vuelve un límite global. El servidor **no** parsea
+`X-Forwarded-For` por su cuenta: confiar en esa cabecera lo haría evadible con un encabezado.
 
 `STALE_S` va aparte porque no es de la misma familia: no ordena el refresco, sino cuánto se sigue
 sirviendo una verificación ya hecha mientras el registro no responde. Solo tiene que **durar más que
