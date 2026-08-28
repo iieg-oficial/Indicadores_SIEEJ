@@ -2,20 +2,21 @@
 
 Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan en otro lado.
 
-|  #  | Decisión               | Elección                                                 | Consecuencia                                                                    |
-| :-: | ---------------------- | -------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| D1  | Framework              | **FastMCP 3.x**                                          | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos         |
-| D2  | Transporte MCP         | **Streamable HTTP** en `/mcp`, remoto y multiusuario     | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD       |
-| D3  | Superficie doble       | **MCP + REST en el mismo ASGI app**                      | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica |
-| D4  | Dónde vive el catálogo | **En este repositorio**                                  | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable               |
-| D5  | Motor de ejecución     | **Propio**, portado de ETL-SIEEJ                         | Sin dependencia de `core.*` del ETL; el proyecto es autónomo                    |
-| D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP              |
-| D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                 |
-| D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
-| D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
-| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
-| D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta  | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez  |
-| D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP    | Es de donde sale la primera credencial; exigir una sería un círculo             |
+|  #  | Decisión               | Elección                                                 | Consecuencia                                                                     |
+| :-: | ---------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| D1  | Framework              | **FastMCP 3.x**                                          | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos          |
+| D2  | Transporte MCP         | **Streamable HTTP** en `/mcp`, remoto y multiusuario     | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD        |
+| D3  | Superficie doble       | **MCP + REST en el mismo ASGI app**                      | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica  |
+| D4  | Dónde vive el catálogo | **En este repositorio**                                  | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable                |
+| D5  | Motor de ejecución     | **Propio**, portado de ETL-SIEEJ                         | Sin dependencia de `core.*` del ETL; el proyecto es autónomo                     |
+| D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP               |
+| D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                  |
+| D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                   |
+| D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                 |
+| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura            |
+| D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta  | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez   |
+| D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP    | Es de donde sale la primera credencial; exigir una sería un círculo              |
+| D13 | Visibilidad del repo   | **Interno**, igual que ETL-SIEEJ                         | Abrirlo publicaría de refilón el esquema de un repositorio que se decidió cerrar |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -103,6 +104,34 @@ De ahí salen tres restricciones que no se negocian:
 
 Lo que se paga está escrito en el riesgo residual de [garantias.md](garantias.md): hasta que el
 correo se verifique, conocer una dirección basta para invalidar la key de esa cuenta.
+
+## Por qué el repositorio es interno (D13)
+
+Cierra la decisión abierta A4. El repositorio nació privado —que es la opción **reversible**: abrirlo
+después se puede, y cerrarlo una vez publicado no borra lo que ya se copió o se indexó— y esta
+decisión lo confirma en vez de cambiarlo.
+
+La razón **no es el dato**. Que un consumidor autenticado pueda extraer, consulta a consulta, todo el
+contenido de los indicadores catalogados ya está aceptado como riesgo residual en
+[garantias.md](garantias.md): son información pública institucional. Esta decisión es sobre el
+**código y la topología**.
+
+Lo que este repositorio expone y no es público por ningún otro lado son tres cosas: los nombres de
+las vistas y MV de origen de cada indicador (`origen` del YAML), los nombres de los pipelines, y la
+tabla de los **tres patrones de `municipio_id`** de
+[periodos-y-geografia.md](periodos-y-geografia.md) — que es, literalmente, cómo están cruzadas las 33
+bases del ETL. Y **ETL-SIEEJ es privado**. Abrir este repositorio publicaría de refilón el esquema de
+un repositorio que se decidió mantener cerrado; esa asimetría es la que decide, y es también la que
+habría que resolver primero el día que se reconsidere.
+
+No pesa en contra nada de lo que suele forzar la decisión al revés: el repositorio **no versiona
+ningún host, IP, DSN ni token real**. `.env.example` lleva solo placeholders y `alembic.ini` no lleva
+`sqlalchemy.url` a propósito, precisamente porque se versiona.
+
+Que sea interno **no relaja el criterio de qué no se versiona**, que está escrito en
+[CONTRIBUTING.md](../CONTRIBUTING.md). Por dos razones: un repositorio interno se filtra igual, y la
+decisión es reversible — el día que se abra, lo que ya entró a la historia de git no se quita sin
+reescribirla.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 
