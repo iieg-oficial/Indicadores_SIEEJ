@@ -168,7 +168,7 @@ def test_ready_for_one_pipeline_forces_the_check(api, monkeypatch, responds, exp
 # --- Montaje ---
 
 
-def test_the_openapi_describes_the_five_routes(api):
+def test_the_openapi_describes_every_route(api):
     paths = api.get("/openapi.json").json()["paths"]
     assert set(paths) == {
         "/health",
@@ -176,6 +176,8 @@ def test_the_openapi_describes_the_five_routes(api):
         "/v1/indicadores",
         "/v1/indicadores/{id}",
         "/v1/indicadores/{id}/datos",
+        "/v1/api-keys",
+        "/v1/api-keys/actual",
     }
     assert api.get("/docs").status_code == 200
 
