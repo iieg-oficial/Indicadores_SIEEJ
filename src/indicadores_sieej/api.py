@@ -23,11 +23,10 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastmcp.server.auth.auth import AccessToken
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-from indicadores_sieej import connections, engine, registry
+from indicadores_sieej import connections, engine, limits, registry
 from indicadores_sieej.auth import ApiKeyVerifier, authenticated, verifier
 from indicadores_sieej.catalog import find, get, load
 from indicadores_sieej.errors import BankError, RegistryUnavailable
-from indicadores_sieej.limits import issue_limiter
 
 # La dependencia va en el router y no ruta por ruta: así una ruta nueva nace protegida
 # en vez de nacer abierta y esperar a que alguien se acuerde.
@@ -178,7 +177,7 @@ def issue_allowed(request: Request) -> None:
     la vuelve real es `uvicorn --proxy-headers --forwarded-allow-ips=<proxy>` — ver
     docs/configuracion.md.
     """
-    issue_limiter().check(request.client.host if request.client else "desconocida")
+    limits.issue_limiter().check(request.client.host if request.client else "desconocida")
 
 
 @public.post("/api-keys", status_code=201, dependencies=[Depends(issue_allowed)])

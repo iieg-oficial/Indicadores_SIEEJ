@@ -8,7 +8,7 @@ from uuid import UUID, uuid4
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import auth, config, connections, engine, registry
+from indicadores_sieej import auth, config, connections, engine, limits, registry
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
@@ -153,6 +153,9 @@ API_KEY_MODE = {
 # importa es que sea la misma en cada corrida.
 ORIGIN = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
+# Los singletons del proceso, capturados antes de que ninguna prueba los sustituya.
+CACHED = (config.settings, auth.verifier, limits.issue_limiter)
+
 
 class Clock:
     """Reloj falso, compartido por el doble y por el verificador.
@@ -263,9 +266,12 @@ class ApiKeyHarness:
     clock: Clock
     _monkeypatch: pytest.MonkeyPatch
 
+    def settings(self, **overrides) -> Settings:
+        return cfg(**{**API_KEY_MODE, **overrides})
+
     def verifier(self, **overrides) -> "auth.ApiKeyVerifier":
         """El verificador suelto, sin levantar el app. Para las pruebas de reloj largo."""
-        return auth.ApiKeyVerifier(self.store, cfg(**{**API_KEY_MODE, **overrides}), clock=self.clock)
+        return auth.ApiKeyVerifier(self.store, self.settings(**overrides), clock=self.clock)
 
     @contextmanager
     def client(self, **overrides):
@@ -274,22 +280,34 @@ class ApiKeyHarness:
 
         from indicadores_sieej.main import create_app
 
-        verifier = self.verifier(**overrides)
-        # Se sustituye la fábrica y no `verifier()`: así el caché del proceso y su
-        # limpieza siguen siendo los de producción.
-        self._monkeypatch.setattr(auth, "build_verifier", lambda _cfg: verifier)
         for name, value in {**BASE, **API_KEY_MODE, **overrides}.items():
             self._monkeypatch.setenv(f"IIEGDB_{name.upper()}", str(value))
-        config.settings.cache_clear()
-        auth.verifier.cache_clear()
-        registry.close()
+        self._reset()
+
+        verifier = self.verifier(**overrides)
+        limiter = limits.IssueLimiter(self.settings(**overrides), clock=self.clock)
+        # Se sustituye la fábrica y no `verifier()`: así el caché del proceso y su
+        # limpieza siguen siendo los de producción. El limitador lleva el mismo reloj
+        # falso, que es lo que permite adelantar una hora sin esperarla.
+        self._monkeypatch.setattr(auth, "build_verifier", lambda _cfg: verifier)
+        self._monkeypatch.setattr(limits, "issue_limiter", lambda: limiter)
         try:
             with TestClient(create_app()) as client:
                 yield client
         finally:
-            config.settings.cache_clear()
-            auth.verifier.cache_clear()
-            registry.close()
+            self._reset()
+
+    @staticmethod
+    def _reset() -> None:
+        """Suelta los singletons del proceso. El limitador cuenta por proceso, así que sin
+        soltarlo una prueba se llevaría las emisiones de la anterior.
+
+        Se limpian por la referencia de CACHED y no por el nombre del módulo, que para
+        entonces puede estar sustituido por el doble de esta misma clase.
+        """
+        for cached in CACHED:
+            cached.cache_clear()
+        registry.close()
 
 
 @pytest.fixture
