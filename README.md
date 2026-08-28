@@ -103,6 +103,28 @@ curl -H "Authorization: Bearer $API_KEY" http://localhost:8000/v1/indicadores
 El ciclo de vida completo de la key —rotación, revocación, qué se guarda— está en
 [docs/api-keys.md](docs/api-keys.md).
 
+## Agregar un indicador
+
+**Un archivo YAML y cero líneas de Python.** Si hace falta código para que un indicador funcione,
+algo está en la capa equivocada.
+
+La guía es [docs/nuevo-flujo.md](docs/nuevo-flujo.md). Si el pipeline ya está dado de alta —que es el
+caso normal— se empieza en el **paso 4**; los tres primeros son solo para un pipeline nuevo. Cubre
+qué escribir, cómo validarlo en local y qué revisar antes de abrir el PR:
+
+```bash
+python -m indicadores_sieej.cli validar               # las siete validaciones del catálogo
+python -m indicadores_sieej.cli ejecutar <id> -p cve_geo=14039
+```
+
+Dos cosas que producen la mayoría de los errores, y que la guía insiste en dejar dichas:
+
+- **El YAML absorbe la heterogeneidad de las bases.** La columna geográfica cambia según el pipeline
+  porque conviven tres patrones de `municipio_id`; el YAML normaliza a `cve_geo` de 5 dígitos y el
+  servidor **nunca** adivina la columna.
+- **Ausencia de fila no es cero.** Varias vistas de origen descartan ceros y nulos. Si el indicador
+  tiene esa trampa, va dicha en `notas` — sin eso, el agente presenta un hueco como un cero.
+
 ## Documentación
 
 El índice de qué leer según lo que vayas a hacer está en **[CLAUDE.md](CLAUDE.md)**. Los documentos
