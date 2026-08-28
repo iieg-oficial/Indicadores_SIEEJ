@@ -14,7 +14,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from indicadores_sieej import connections
+from indicadores_sieej import connections, registry
 from indicadores_sieej.api import bank_error_handler, operations, router, schema
 from indicadores_sieej.auth import AuthMiddleware
 from indicadores_sieej.catalog import load
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
             yield
 
         connections.close_all()
+        registry.close()
 
     app = FastAPI(
         title="Banco de indicadores IIEG",

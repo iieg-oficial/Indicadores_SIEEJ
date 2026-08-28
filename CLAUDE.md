@@ -23,6 +23,7 @@ una por pipeline. Este proyecto solo **lee**.
 | Tocar la carga del catálogo                   | [validaciones-catalogo.md](docs/validaciones-catalogo.md) → [anatomia-yaml.md](docs/anatomia-yaml.md)                                                   |
 | Tocar las tools MCP o las rutas REST          | [superficies.md](docs/superficies.md) → [errores.md](docs/errores.md)                                                                                   |
 | Tocar autenticación o límites                 | [garantias.md](docs/garantias.md) → [configuracion.md](docs/configuracion.md)                                                                           |
+| Tocar las API keys o su registro              | [api-keys.md](docs/api-keys.md) → [configuracion.md](docs/configuracion.md)                                                                             |
 | Tocar conexiones o pools                      | [conexiones.md](docs/conexiones.md) → [configuracion.md](docs/configuracion.md)                                                                         |
 | Entender por qué algo está así                | [decisiones.md](docs/decisiones.md)                                                                                                                     |
 | Saber qué indicadores existen y de dónde leen | [catalogo-piloto.md](docs/catalogo-piloto.md)                                                                                                           |

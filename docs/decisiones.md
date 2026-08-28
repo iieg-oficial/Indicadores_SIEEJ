@@ -13,6 +13,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                 |
 | D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
 | D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
+| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -27,6 +28,31 @@ las dos superficies: REST como dependencia y MCP como middleware sobre su sub-ap
 
 El precio es que montar `/mcp` sin ese middleware lo dejaría abierto. Lo cubre una prueba que recorre
 todas las rutas registradas y verifica que ninguna salvo `/health` responde sin token.
+
+## Por qué el registro vive en su propia base (D10)
+
+La API se decidió pública y de autoservicio: cualquiera pide una **API key** con su correo y la
+obtiene. No es un token: es una credencial larga, opaca, una por consumidor y sin flujo de refresco —
+un PAT de GitHub, no un access token. Lo que viaja en `Authorization: Bearer` sí es un bearer token,
+que es vocabulario de HTTP y la única forma que acepta MCP.
+
+Eso obliga a **persistir** las keys emitidas, y este servicio nunca había escrito en ningún lado.
+
+La base es **suya**, no una de las 33 del ETL. Sobre aquellas se sigue sin escribir jamás: la
+garantía de solo lectura no admite una excepción "pequeña", porque el rol es el mismo para las 33.
+Por eso `IIEGDB_REGISTRY_DSN` es su propia variable con su propio rol, y **no** se deriva de
+`IIEGDB_PG_*` ni cae de vuelta en él cuando falta: derivarlo crearía presión para concederle
+escritura al rol de lectura, y eso rompería la garantía en las 33 bases a la vez.
+
+Se migra con **Alembic** y no con Flyway como ETL-SIEEJ. Es una tabla y este repositorio no tiene
+JVM ni `just`; Alembic ya habla con el mismo SQLAlchemy que usa el motor, y los `COMMENT ON` que
+exige la convención del ETL salen del propio modelo. El DSN no vive en `alembic.ini` —ese archivo se
+versiona— sino que se inyecta desde la configuración, así que servidor y migraciones leen la misma
+variable.
+
+**El esquema se aplica a mano**, con `python -m indicadores_sieej.cli migrar`, nunca al arrancar el
+servidor. Es la convención del ETL, y significa que el rol del servidor no necesita permisos de DDL
+en operación normal.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 

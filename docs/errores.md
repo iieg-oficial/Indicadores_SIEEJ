@@ -15,12 +15,17 @@ traduce sin reescribirlos.
 | Sin token o token inválido | `no autenticado` / `token inválido`                      | 401  |                 No                  |
 | Token sin el scope         | `el token no tiene el scope 'indicadores:read'`          | 403  |                 No                  |
 | Rate limit excedido        | `demasiadas consultas; reintenta en <n>s`                | 429  |           Sí — con espera           |
+| Registro de API keys caído | `el registro de API keys no está disponible`             | 503  |      No — reintenta más tarde       |
 | Catálogo inválido          | ver [validaciones-catalogo.md](validaciones-catalogo.md) |  —   |       No — impide el arranque       |
 
 ## Dos reglas
 
 **Los errores recuperables llegan al agente con su texto íntegro.** La lista de parámetros que trae
 el mensaje es justamente lo que le permite reintentar bien. No se resumen ni se reescriben.
+
+**Un registro caído es 503, nunca 401.** Un 401 le diría a cada consumidor que su credencial es
+mala y los mandaría a todos a pedir una nueva, convirtiendo un parpadeo del registro en una
+estampida contra el registro. El 503 dice lo que pasa: no es la credencial, es el servidor.
 
 **Los errores no recuperables no filtran nada.** Ni SQL, ni DSN, ni credenciales, ni nombres de
 tabla, ni trazas de pila. Eso va al log del servidor, con un identificador de correlación que sí se

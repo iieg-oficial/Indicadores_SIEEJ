@@ -6,12 +6,13 @@ casos y comprobando que pasan por la misma función.
 """
 
 import pytest
+from fastapi import FastAPI
 from fastapi.routing import APIRoute
 from starlette.routing import Mount
 
 from indicadores_sieej import auth, config
 
-from .conftest import SCOPELESS, TOKEN
+from .conftest import SCOPELESS, TOKEN, cfg
 
 MCP_BODY = {
     "jsonrpc": "2.0",
@@ -30,18 +31,28 @@ def _rest(client):
     return client.get("/v1/indicadores")
 
 
-def _api_routes(container):
-    """Todas las rutas GET del app, recursivo.
+# Las únicas rutas abiertas del servidor. Agregar una entrada aquí es una decisión de
+# seguridad y se revisa como tal — no un ajuste de prueba.
+OPEN_ROUTES = {("/health", "GET")}
 
-    FastAPI no aplana los routers incluidos: `app.routes` trae contenedores, no rutas,
-    y quedarse en el primer nivel haría que el recorrido de abajo pasara sin mirar nada.
+
+def _api_routes(container):
+    """Cada par (ruta, método) registrado en el app, recursivo.
+
+    Dos trampas, y las dos hacían que el recorrido de abajo pasara en falso:
+
+    - FastAPI no aplana los routers incluidos: `app.routes` trae contenedores, no rutas.
+    - Filtrar por `GET` dejaba fuera `POST` y `DELETE`, que es justo por donde entra una
+      ruta de escritura sin proteger.
+
+    `HEAD` y `OPTIONS` se omiten: los agrega el framework, no el autor de la ruta.
     """
     for route in getattr(container, "routes", []):
         if isinstance(route, Mount):
             continue
         if isinstance(route, APIRoute):
-            if "GET" in route.methods:
-                yield route
+            for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
+                yield route.path, method
         else:
             yield from _api_routes(getattr(route, "original_router", route))
 
@@ -76,20 +87,19 @@ def test_health_is_the_only_route_without_authentication(clients):
 # --- La regresión que importa el día que alguien agregue una ruta ---
 
 
-def test_every_registered_route_but_health_demands_authentication(clients):
+def test_every_registered_route_but_the_open_ones_demands_authentication(clients):
     """Una ruta nueva nace protegida porque la dependencia va en el router. Esto es lo
     que se entera si alguien la registra por fuera."""
     with clients(None) as client:
         unprotected = []
         # La sub-app MCP no es una ruta: se sondea por su propio endpoint.
         if _mcp(client).status_code != 401:
-            unprotected.append("/mcp")
-        for route in _api_routes(client.app):
-            path = route.path.format(id="cualquiera")
-            if path == "/health":
+            unprotected.append(("/mcp", "POST"))
+        for path, method in _api_routes(client.app):
+            if (path, method) in OPEN_ROUTES:
                 continue
-            if client.get(path).status_code != 401:
-                unprotected.append(path)
+            if client.request(method, path.format(id="cualquiera")).status_code != 401:
+                unprotected.append((path, method))
 
     assert unprotected == [], f"responden sin token: {unprotected}"
 
@@ -97,16 +107,31 @@ def test_every_registered_route_but_health_demands_authentication(clients):
 def test_the_sweep_covers_every_route(clients):
     """Canario: si el recorrido dejara de ver rutas, la prueba de arriba pasaría vacía."""
     with clients(None) as client:
-        paths = {route.path for route in _api_routes(client.app)}
-    assert paths == {
-        "/health",
-        "/ready",
-        "/docs",
-        "/openapi.json",
-        "/v1/indicadores",
-        "/v1/indicadores/{id}",
-        "/v1/indicadores/{id}/datos",
+        routes = set(_api_routes(client.app))
+    assert routes == {
+        ("/health", "GET"),
+        ("/ready", "GET"),
+        ("/docs", "GET"),
+        ("/openapi.json", "GET"),
+        ("/v1/indicadores", "GET"),
+        ("/v1/indicadores/{id}", "GET"),
+        ("/v1/indicadores/{id}/datos", "GET"),
     }
+
+
+def test_the_walk_sees_methods_other_than_get():
+    """Canario del canario. Filtrando por GET, una ruta de escritura sin proteger era
+    invisible para el barrido **y** para el conjunto de arriba, porque los dos se
+    alimentan de este generador: las dos pasaban en verde con la ruta abierta."""
+    app = FastAPI()
+
+    @app.post("/emitir")
+    def _emitir(): ...
+
+    @app.delete("/revocar")
+    def _revocar(): ...
+
+    assert {("/emitir", "POST"), ("/revocar", "DELETE")} <= set(_api_routes(app))
 
 
 # --- Una sola verificación para las dos superficies ---
@@ -173,6 +198,13 @@ def test_a_token_is_revoked_by_removing_it_from_the_variable(clients, monkeypatc
 
 
 # --- El parseo de IIEGDB_STATIC_TOKENS ---
+
+
+def test_the_verifier_can_be_built_with_injected_settings():
+    """`Settings` es un modelo de pydantic y no es hasheable: como argumento de una
+    función con lru_cache reventaba con TypeError. Por eso `build_verifier` va aparte."""
+    assert auth.build_verifier(cfg()) is not None
+    assert auth.build_verifier(cfg(auth_mode="jwt", jwks_uri="https://x/j", issuer="https://x/", audience="a"))
 
 
 def test_the_static_tokens_parse_client_and_scopes():

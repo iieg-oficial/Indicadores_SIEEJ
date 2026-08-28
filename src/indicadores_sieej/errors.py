@@ -74,6 +74,18 @@ class InsufficientScope(BankError):
     recoverable = False
 
 
+class RegistryUnavailable(BankError):
+    """El registro de API keys no responde, o no está configurado.
+
+    **Nunca 401.** Un 401 le diría a cada consumidor que su credencial es mala y los
+    mandaría a todos a pedir una nueva, convirtiendo un parpadeo del registro en una
+    estampida contra el registro. 503 dice lo que pasa: no es la key, es el servidor.
+    """
+
+    http = 503
+    recoverable = False
+
+
 class QueryError(BankError):
     """Base caída o consulta fallida. Al cliente va genérico; el detalle, al log."""
 

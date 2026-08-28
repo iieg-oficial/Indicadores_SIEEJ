@@ -33,12 +33,26 @@ class Settings(BaseSettings):
     pipelines: str
 
     # --- Autenticación ---
-    auth_mode: Literal["static", "jwt"]
+    # `api_key` es el modo de producción: API keys de autoservicio verificadas contra la
+    # base propia del servicio. `static` es para desarrollo; `jwt`, para el día que haya
+    # un proveedor de identidad institucional. Los tres nombran **qué credencial** se
+    # verifica, no dónde se guarda. Decidido en #29.
+    auth_mode: Literal["static", "jwt", "api_key"]
     static_tokens: Optional[SecretStr] = None
     jwks_uri: Optional[str] = None
     issuer: Optional[str] = None
     audience: Optional[str] = None
     base_url: str
+
+    # DSN propio y rol propio, **nunca derivado de IIEGDB_PG_***: ese bloque es el rol de
+    # solo lectura de las 33 bases del ETL, y derivar de ahí crearía presión para darle
+    # permisos de escritura. Eso rompería la garantía de solo lectura en todas a la vez.
+    registry_dsn: Optional[SecretStr] = None
+
+    # Las tres ventanas del registro de API keys. Ver docs/api-keys.md.
+    api_key_ttl_days: int = 90
+    api_key_touch_s: int = 3600
+    api_key_cache_ttl_s: int = 60
 
     # --- Límites y operación ---
     row_limit: int = 5000
@@ -68,8 +82,26 @@ class Settings(BaseSettings):
                 )
                 if not value
             ]
+        elif self.auth_mode == "api_key" and not self.registry_dsn:
+            missing = ["IIEGDB_REGISTRY_DSN"]
         if missing:
             raise ValueError(f"con IIEGDB_AUTH_MODE={self.auth_mode} falta {', '.join(missing)}")
+        return self
+
+    @model_validator(mode="after")
+    def _coherent_api_key_windows(self) -> "Settings":
+        """El orden de las tres ventanas es lo que hace correcta la caducidad por desuso.
+
+        Una key en uso refresca su `last_used_at` porque el caché expira antes que la
+        ventana de refresco, y esa antes que la de caducidad. Invertir el orden —subir el
+        caché "para bajar carga", por ejemplo— haría que una key en uso continuo caducara
+        sola, y tardaría noventa días en notarse. Por eso se falla al arrancar.
+        """
+        if not self.api_key_cache_ttl_s < self.api_key_touch_s < self.api_key_ttl_days * 86400:
+            raise ValueError(
+                "las ventanas del registro deben cumplir "
+                "IIEGDB_API_KEY_CACHE_TTL_S < IIEGDB_API_KEY_TOUCH_S < IIEGDB_API_KEY_TTL_DAYS en segundos"
+            )
         return self
 
     def serves(self, pipeline: str) -> bool:

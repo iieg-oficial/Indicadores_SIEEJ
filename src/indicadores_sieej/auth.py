@@ -50,20 +50,21 @@ def _static_tokens(raw: str) -> dict[str, dict]:
     return tokens
 
 
-@lru_cache(maxsize=1)
-def verifier(cfg: Optional[Settings] = None) -> TokenVerifier:
-    """El verificador del proceso. **Uno solo**, y las dos superficies lo comparten.
+def build_verifier(cfg: Settings) -> TokenVerifier:
+    """Arma el verificador que corresponde al modo de autenticación.
 
     Se construye **sin** `required_scopes`: el scope lo revisa `identify` para poder
     responder `403` en vez de `401`.
 
+    Va separada de `verifier()` porque es la que recibe settings: `Settings` es un modelo
+    de pydantic y no es hasheable, así que no puede ser argumento de una función con
+    `lru_cache`. Con las dos partidas, esta es pura y probable con cualquier configuración,
+    y el caché queda donde no estorba.
+
     ⚠️ `StaticTokenVerifier` guarda los tokens en texto plano y su propia documentación
-    advierte que no se use en producción. Para F1 —despliegue interno, pocos consumidores
-    conocidos— es lo que pide SEG-7; **F2 no puede desplegarse así**. #29 decide entre
-    pasar a `jwt` o escribir un verificador contra hashes: se cambia esta función, no las
-    superficies.
+    advierte que no se use en producción. Es para desarrollo y pruebas; el modo de
+    producción es el que decidió #29 y no pasa por aquí.
     """
-    cfg = cfg or settings()
     if cfg.auth_mode == "jwt":
         return JWTVerifier(
             jwks_uri=cfg.jwks_uri,
@@ -72,6 +73,12 @@ def verifier(cfg: Optional[Settings] = None) -> TokenVerifier:
             base_url=cfg.base_url,
         )
     return StaticTokenVerifier(_static_tokens(cfg.static_tokens.get_secret_value()))
+
+
+@lru_cache(maxsize=1)
+def verifier() -> TokenVerifier:
+    """El verificador del proceso. **Uno solo**, y las dos superficies lo comparten."""
+    return build_verifier(settings())
 
 
 def _bearer(header: Optional[str]) -> Optional[str]:

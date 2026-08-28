@@ -45,3 +45,36 @@ def test_the_password_and_the_tokens_stay_out_of_the_repr():
     cfg = _cfg(pg_password="contrasena_real", static_tokens="token_real")
     text = f"{cfg!r} {cfg.pg_password} {cfg.static_tokens}"
     assert "contrasena_real" not in text and "token_real" not in text
+
+
+# --- Modo api_key y las ventanas de las API keys ---
+
+
+def test_api_key_mode_demands_its_own_dsn():
+    with pytest.raises(ValidationError, match="IIEGDB_REGISTRY_DSN"):
+        _cfg(auth_mode="api_key", registry_dsn=None)
+
+
+def test_api_key_mode_starts_with_its_dsn():
+    cfg = _cfg(auth_mode="api_key", registry_dsn="postgresql://u:p@h/registro")
+    assert cfg.registry_dsn.get_secret_value() == "postgresql://u:p@h/registro"
+
+
+def test_the_api_key_windows_have_the_documented_defaults():
+    cfg = _cfg()
+    assert (cfg.api_key_ttl_days, cfg.api_key_touch_s, cfg.api_key_cache_ttl_s) == (90, 3600, 60)
+
+
+@pytest.mark.parametrize(
+    "windows",
+    [
+        {"api_key_cache_ttl_s": 7200},  # el caché sobrevive a la ventana de refresco
+        {"api_key_touch_s": 60},  # refresco y caché empatados
+        {"api_key_ttl_days": 0},  # caducidad por debajo del refresco
+    ],
+)
+def test_incoherent_api_key_windows_block_startup(windows):
+    """Invertir el orden haría caducar una API key en uso continuo, y tardaría noventa
+    días en notarse. Vale más no arrancar."""
+    with pytest.raises(ValidationError, match="IIEGDB_API_KEY_CACHE_TTL_S"):
+        _cfg(**windows)
