@@ -98,7 +98,7 @@ class ApiKeyVerifier(TokenVerifier):
         cfg: Settings,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        super().__init__(base_url=cfg.base_url)
+        super().__init__(base_url=str(cfg.base_url))
         self.store = store
         self.cfg = cfg
         self.clock = clock
@@ -266,7 +266,7 @@ def build_verifier(cfg: Settings) -> TokenVerifier:
             jwks_uri=cfg.jwks_uri,
             issuer=cfg.issuer,
             audience=cfg.audience,
-            base_url=cfg.base_url,
+            base_url=str(cfg.base_url),
         )
     if cfg.auth_mode == "api_key":
         # Construirlo no conecta: el motor del registro es perezoso. Un DSN malo se
