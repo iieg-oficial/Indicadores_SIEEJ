@@ -35,6 +35,21 @@ Toda consulta devuelve las mismas cinco columnas —`cve_geo`, `nombre_geo`, `pe
 
 ## Correrlo en local
 
+### Con Docker
+
+Levanta el servidor y el PostgreSQL del registro de API keys. No hace falta nada más:
+
+```bash
+cp .env.example .env      # sirve tal cual; para leer bases reales, llena IIEGDB_PG_*
+docker compose up
+```
+
+El `.env.example` arranca en modo `api_key` contra el PostgreSQL que trae `compose.yaml`.
+Las 33 bases del ETL viven fuera: sin ruta de red hacia ellas el servidor levanta igual, y sus
+indicadores responden `503`.
+
+### Sin Docker
+
 ```bash
 pip install -e ".[dev]"
 pre-commit install --hook-type commit-msg
@@ -47,11 +62,46 @@ python -m indicadores_sieej.cli listar --tema empleo
 uvicorn indicadores_sieej.main:app --reload   # MCP en /mcp, REST en /v1, OpenAPI en /docs
 ```
 
-Con Docker, cuando esté disponible:
+## Conectar un cliente MCP
+
+Todo lo que responde exige credencial, salvo `/health` y la emisión. Así que el primer paso siempre
+es **pedir una API key**, que es de autoservicio: un correo, sin trámite.
 
 ```bash
-docker compose up         # solo necesita el .env
+curl -sX POST http://localhost:8000/v1/api-keys \
+     -H 'Content-Type: application/json' \
+     -d '{"correo":"tu.correo@iieg.mx"}'
 ```
+
+```json
+{
+  "api_key": "iieg_a3f9…",
+  "correo": "tu.correo@iieg.mx",
+  "expira_en": "2026-11-24T18:00:00Z"
+}
+```
+
+**La key se devuelve una sola vez.** Se guarda solo su hash, así que perderla significa pedir otra —
+que además revoca la anterior. Caduca a los 90 días **sin usarse**; una en uso vive indefinidamente.
+
+El transporte es Streamable HTTP y la credencial viaja como bearer token. En Claude Code:
+
+```bash
+claude mcp add --transport http indicadores http://localhost:8000/mcp/ \
+  --header "Authorization: Bearer iieg_a3f9…"
+```
+
+Cualquier otro cliente MCP necesita lo mismo, en su propia sintaxis: la **URL `/mcp/`** —con la barra
+final— y el encabezado `Authorization: Bearer <api_key>`. Desde ahí el agente ve las tres tools.
+
+Para un tablero o un script, la misma funcionalidad está en REST con el mismo encabezado:
+
+```bash
+curl -H "Authorization: Bearer $API_KEY" http://localhost:8000/v1/indicadores
+```
+
+El ciclo de vida completo de la key —rotación, revocación, qué se guarda— está en
+[docs/api-keys.md](docs/api-keys.md).
 
 ## Documentación
 
@@ -68,6 +118,7 @@ viven en [`docs/`](docs/), uno por pregunta:
 [garantías de seguridad](docs/garantias.md) ·
 [conexiones](docs/conexiones.md) ·
 [superficies](docs/superficies.md) ·
+[API keys](docs/api-keys.md) ·
 [configuración](docs/configuracion.md) ·
 [versionado](docs/versionado.md) ·
 [decisiones](docs/decisiones.md) ·
