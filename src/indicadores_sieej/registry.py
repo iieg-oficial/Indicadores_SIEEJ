@@ -1,4 +1,4 @@
-"""El registro de API keys: modelo, conexión de escritura y migraciones.
+"""El registro de API keys: modelo, migraciones, conexión de escritura y su almacén.
 
 **Es la única ruta de escritura del proyecto.** Todo lo demás lee: el catálogo del disco,
 la configuración del entorno y las 33 bases del ETL. Sobre esas últimas se sigue sin
@@ -17,17 +17,22 @@ de solo lectura, y derivar de ahí crearía presión para concederle escritura, 
 rompería la garantía de solo lectura en las 33 bases a la vez.
 """
 
+import hashlib
 import logging
+import secrets
 import threading
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Protocol
 from uuid import UUID
 
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import CheckConstraint, DateTime, Engine, Index, String, Text, create_engine, text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID as PGUUID
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from indicadores_sieej.config import Settings, settings
@@ -189,3 +194,207 @@ def migrate(cfg: Optional[Settings] = None) -> None:
     operación normal.
     """
     command.upgrade(alembic_config(cfg), "head")
+
+
+# --- El almacén ---------------------------------------------------------------------
+#
+# El verificador depende del **protocolo, no de SQLAlchemy**. Es lo que permite ejercitar
+# todo el recorrido en CI sin una base viva, con el doble en memoria de tests/conftest.py
+# — el mismo patrón que `_Connection`/`_Pool` usa para el motor de consultas.
+
+PREFIX = "iieg_"
+# Lo que se guarda como prefijo: el marcador más ocho caracteres. Suficiente para
+# distinguir dos keys en un ticket, muy lejos de reconstruir 256 bits.
+PREFIX_LEN = len(PREFIX) + 8
+
+
+def hashed(key: str) -> str:
+    """El sha256 hexadecimal de una API key.
+
+    Sin sal, a propósito: es lo que permite buscar por índice con `WHERE key_hash = :h`.
+    Y sin bcrypt: la key son 256 bits aleatorios, no una contraseña humana, y este hash
+    está en el camino caliente de cada petición. El razonamiento largo, en docs/api-keys.md.
+    """
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
+def new_key() -> tuple[str, str, str]:
+    """Una API key nueva: `(key en claro, sha256, prefijo)`.
+
+    El prefijo `iieg_` no es decorativo: la hace reconocible para un escáner de secretos
+    y permite nombrarla en soporte sin que nadie pegue la credencial completa.
+    """
+    key = PREFIX + secrets.token_urlsafe(32)
+    return key, hashed(key), key[:PREFIX_LEN]
+
+
+@dataclass(frozen=True)
+class StoredKey:
+    """Una fila del registro, ya sin nada secreto.
+
+    `expires_at` e `idle_s` los calcula **el servidor de base de datos**: la caducidad se
+    mide contra `now()` de allá, nunca contra el reloj de Python. Con un solo reloj, el
+    desfase ni siquiera es representable.
+
+    `idle_s` —cuánto lleva sin usarse la key en el momento de leerla— es lo que permite al
+    verificador decidir el refresco acotado sin volver a preguntar la hora a la base.
+    """
+
+    id: UUID
+    correo: str
+    prefijo: str
+    scopes: list[str]
+    created_at: datetime
+    last_used_at: datetime
+    expires_at: int
+    idle_s: int
+
+
+class ApiKeyStore(Protocol):
+    """Lo que el verificador y las rutas necesitan del registro, y nada más.
+
+    Las cuatro operaciones levantan `RegistryUnavailable` si el registro no responde.
+    **Nunca devuelven None por una caída**: `find` devuelve None solo cuando la key no
+    sirve, que es lo que se traduce a 401.
+    """
+
+    def find(self, key_hash: str) -> Optional[StoredKey]: ...
+
+    def touch(self, id: UUID, throttle_s: int) -> None: ...
+
+    def issue(self, correo: str) -> tuple[str, StoredKey]: ...
+
+    def revoke(self, id: UUID) -> None: ...
+
+
+# Una consulta, un viaje. Que la fila no exista es indistinguible de revocada o de
+# caducada por desuso — que es exactamente lo que queremos para el 401.
+_COLUMNS = """
+    id, correo, prefijo, scopes, created_at, last_used_at,
+    EXTRACT(EPOCH FROM (last_used_at + make_interval(days => :ttl_days)))::bigint AS expires_at,
+    EXTRACT(EPOCH FROM (now() - last_used_at))::bigint AS idle_s
+"""
+
+_FIND = text(f"""
+    SELECT {_COLUMNS}
+      FROM api_keys
+     WHERE key_hash = :key_hash
+       AND revoked_at IS NULL
+       AND last_used_at > now() - make_interval(days => :ttl_days)
+""")
+
+# Idempotente y sin lectura previa, así que dos workers no se estorban: el que llega
+# tarde actualiza cero filas y no pasa nada.
+_TOUCH = text("""
+    UPDATE api_keys
+       SET last_used_at = now()
+     WHERE id = :id AND last_used_at < now() - make_interval(secs => :throttle_s)
+""")
+
+_REVOKE_ACTIVE_FOR = text("UPDATE api_keys SET revoked_at = now() WHERE correo = :correo AND revoked_at IS NULL")
+
+_INSERT = text(f"""
+    INSERT INTO api_keys (correo, key_hash, prefijo)
+         VALUES (:correo, :key_hash, :prefijo)
+      RETURNING {_COLUMNS}
+""")
+
+_REVOKE = text("UPDATE api_keys SET revoked_at = now() WHERE id = :id AND revoked_at IS NULL")
+
+# `make_interval` es de core PostgreSQL: evita depender de cómo el driver adapta un
+# `timedelta`, que es la clase de detalle que cambia al cambiar de driver.
+
+
+def _stored(row) -> StoredKey:
+    return StoredKey(
+        id=UUID(str(row["id"])),
+        correo=row["correo"],
+        prefijo=row["prefijo"],
+        scopes=list(row["scopes"]),
+        created_at=row["created_at"],
+        last_used_at=row["last_used_at"],
+        expires_at=int(row["expires_at"]),
+        idle_s=int(row["idle_s"]),
+    )
+
+
+class PostgresApiKeyStore:
+    """El registro de verdad. Construirlo **no** conecta: `engine()` es perezoso."""
+
+    def __init__(self, cfg: Optional[Settings] = None) -> None:
+        self._cfg = cfg
+
+    @property
+    def cfg(self) -> Settings:
+        return self._cfg or settings()
+
+    def find(self, key_hash: str) -> Optional[StoredKey]:
+        with self._connect() as conn:
+            row = conn.execute(_FIND, {"key_hash": key_hash, "ttl_days": self.cfg.api_key_ttl_days}).mappings().first()
+        return _stored(row) if row else None
+
+    def touch(self, id: UUID, throttle_s: int) -> None:
+        with self._begin() as conn:
+            conn.execute(_TOUCH, {"id": str(id), "throttle_s": throttle_s})
+
+    def issue(self, correo: str) -> tuple[str, StoredKey]:
+        """Revoca la activa del correo y emite otra. Es la rotación, en una transacción."""
+        try:
+            return self._issue(correo)
+        except IntegrityError:
+            # Perdió la carrera contra otra emisión para el mismo correo y el índice
+            # parcial la rechazó. Reintentar una vez revoca la fila del ganador e inserta
+            # la propia: sigue quedando exactamente una activa, que es la garantía.
+            return self._issue(correo)
+
+    def revoke(self, id: UUID) -> None:
+        with self._begin() as conn:
+            conn.execute(_REVOKE, {"id": str(id)})
+
+    def _issue(self, correo: str) -> tuple[str, StoredKey]:
+        key, key_hash, prefijo = new_key()
+        # `scopes` no se manda: lo pone el `server_default` de la columna. Es
+        # literalmente el servidor asignándolos, y no hay ruta por la que un valor de la
+        # petición llegue hasta aquí.
+        binds = {
+            "correo": correo,
+            "key_hash": key_hash,
+            "prefijo": prefijo,
+            "ttl_days": self.cfg.api_key_ttl_days,
+        }
+        with self._begin() as conn:
+            conn.execute(_REVOKE_ACTIVE_FOR, {"correo": correo})
+            row = conn.execute(_INSERT, binds).mappings().one()
+            stored = _stored(row)
+        return key, stored
+
+    @contextmanager
+    def _connect(self):
+        with _unavailable_on_failure():
+            with engine(self._cfg).connect() as conn:
+                yield conn
+
+    @contextmanager
+    def _begin(self):
+        with _unavailable_on_failure():
+            with engine(self._cfg).begin() as conn:
+                yield conn
+
+
+@contextmanager
+def _unavailable_on_failure():
+    """Traduce cualquier fallo del registro a `RegistryUnavailable`, que es **503**.
+
+    La traducción vive aquí y no en el verificador para que las rutas de emisión hereden
+    el mismo comportamiento sin repetirlo. `IntegrityError` se deja pasar: no es el
+    registro caído, es la carrera de emisión, y `issue` sabe qué hacer con ella.
+    """
+    try:
+        yield
+    except IntegrityError:
+        raise
+    except SQLAlchemyError as exc:
+        # El detalle va al log, nunca al cliente: un DSN o un nombre de tabla en la
+        # respuesta es justo lo que docs/garantias.md no permite salir.
+        log.warning("el registro de API keys no respondió: %s", type(exc).__name__)
+        raise RegistryUnavailable("el registro de API keys no está disponible") from exc
