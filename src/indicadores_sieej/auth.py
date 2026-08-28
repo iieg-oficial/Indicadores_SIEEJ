@@ -27,7 +27,7 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 
 from indicadores_sieej.config import Settings, settings
-from indicadores_sieej.errors import BankError, InsufficientScope, Unauthenticated
+from indicadores_sieej.errors import BankError, InsufficientScope, RegistryUnavailable, Unauthenticated
 from indicadores_sieej.registry import ApiKeyStore, PostgresApiKeyStore, StoredKey, hashed
 
 log = logging.getLogger(__name__)
@@ -75,6 +75,8 @@ class _Cached:
     fresh_until: float
     # Cuándo caduca la key misma. La entrada **nunca** lo sobrevive.
     dead_at: float
+    # Hasta cuándo se sirve esta lectura si el registro deja de responder.
+    stale_until: float
     # Cuándo se sabe refrescado `last_used_at` en la base.
     touched_at: float
 
@@ -120,7 +122,16 @@ class ApiKeyVerifier(TokenVerifier):
             await self._touch(entry, now)
             return entry.access
 
-        stored = await self._find(key_hash)
+        try:
+            stored = await self._find(key_hash)
+        except RegistryUnavailable:
+            stale = self._stale(key_hash, now)
+            if stale is None:
+                raise
+            # A propósito **sin** refrescar el último uso: durante una caída el refresco
+            # también falla, y reintentarlo en cada petición solo llenaría el log.
+            return stale.access
+
         if stored is None:
             self._cache.pop(key_hash, None)
             return None
@@ -138,6 +149,22 @@ class ApiKeyVerifier(TokenVerifier):
         hay nada que lo invalide desde fuera.
         """
         self._cache.pop(key_hash, None)
+
+    def _stale(self, key_hash: str, now: float) -> Optional[_Cached]:
+        """La última verificación buena, si todavía se puede servir con el registro caído.
+
+        Compra disponibilidad a cambio de que una revocación tarde hasta
+        `IIEGDB_API_KEY_STALE_S` en propagarse **durante la caída**. Tres bordes la hacen
+        aceptable, y los tres importan:
+
+        - Solo hay entradas **positivas**: una key que ya se supo muerta se desalojó al
+          saberlo y no revive por una caída posterior.
+        - `stale_until` nunca pasa de `dead_at`, así que esto no resucita una caducada.
+        - Con `IIEGDB_API_KEY_STALE_S=0` la ventana es nula y la caída es 503 de entrada,
+          que es la salida para un despliegue que prefiera cortar antes que aguantar.
+        """
+        entry = self._cache.get(key_hash)
+        return entry if entry is not None and now < entry.stale_until else None
 
     async def _find(self, key_hash: str) -> Optional[StoredKey]:
         """La consulta al registro, **fuera del event loop**.
@@ -181,6 +208,7 @@ class ApiKeyVerifier(TokenVerifier):
             id=stored.id,
             fresh_until=min(now + self.cfg.api_key_cache_ttl_s, dead_at),
             dead_at=dead_at,
+            stale_until=min(now + self.cfg.api_key_stale_s, dead_at),
             # Lo que ya llevaba sin usarse cuando la base la leyó: sin esto, una key que
             # vuelve tras semanas parada no se refrescaría hasta una hora después.
             touched_at=now - stored.idle_s,
