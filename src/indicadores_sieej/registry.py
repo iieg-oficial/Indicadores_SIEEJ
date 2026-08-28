@@ -275,7 +275,8 @@ class StoredKey:
 class ApiKeyStore(Protocol):
     """Lo que el verificador y las rutas necesitan del registro, y nada más.
 
-    Las cuatro operaciones levantan `RegistryUnavailable` si el registro no responde.
+    Las cuatro operaciones levantan `RegistryUnavailable` si el registro no responde —
+    envolviéndose en `unavailable_on_failure()`, que además anota el estado de `/health`.
     **Nunca devuelven None por una caída**: `find` devuelve None solo cuando la key no
     sirve, que es lo que se traduce a 401.
     """
@@ -392,21 +393,25 @@ class PostgresApiKeyStore:
 
     @contextmanager
     def _connect(self):
-        with _unavailable_on_failure():
+        with unavailable_on_failure():
             with engine(self._cfg).connect() as conn:
                 yield conn
 
     @contextmanager
     def _begin(self):
-        with _unavailable_on_failure():
+        with unavailable_on_failure():
             with engine(self._cfg).begin() as conn:
                 yield conn
 
 
 @contextmanager
-def _unavailable_on_failure():
+def unavailable_on_failure():
     """Traduce cualquier fallo del registro a `RegistryUnavailable`, que es **503**, y
     de paso anota el estado que `/health` reporta.
+
+    Es público porque **toda** implementación de `ApiKeyStore` debe envolverse en él: es
+    lo que hace que la traducción, el log y el estado observado sean uno solo y no tres
+    copias que se desincronizan.
 
     La traducción vive aquí y no en el verificador para que las rutas de emisión hereden
     el mismo comportamiento sin repetirlo. `IntegrityError` se deja pasar: no es el

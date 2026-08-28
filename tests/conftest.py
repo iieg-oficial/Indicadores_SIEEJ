@@ -1,11 +1,14 @@
 """Dobles compartidos por las pruebas. Ninguna prueba abre una base ni un puerto."""
 
 from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy.exc import OperationalError
 
-from indicadores_sieej import auth, config, connections, engine
+from indicadores_sieej import auth, config, connections, engine, registry
 from indicadores_sieej.catalog import COLUMNS
 from indicadores_sieej.config import Settings
 
@@ -137,3 +140,159 @@ def api(monkeypatch):
 def clients(monkeypatch):
     """Fábrica de clientes con el token que pida la prueba; None manda sin cabecera."""
     return lambda token: _client(monkeypatch, token)
+
+
+# --- El registro de API keys, sin PostgreSQL -----------------------------------------
+
+API_KEY_MODE = {
+    "auth_mode": "api_key",
+    "registry_dsn": "postgresql://registro:x@localhost:5432/registro",
+}
+
+# Un origen fijo para las marcas de tiempo del doble. La fecha no significa nada; lo que
+# importa es que sea la misma en cada corrida.
+ORIGIN = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+
+class Clock:
+    """Reloj falso, compartido por el doble y por el verificador.
+
+    Es lo que convierte «cien días de uso» en un bucle en vez de en una espera, y lo que
+    permite parar la caducidad justo en el borde en vez de cerca de él.
+    """
+
+    def __init__(self, now: float = 0.0):
+        self.now = now
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> "Clock":
+        self.now += seconds
+        return self
+
+
+class InMemoryApiKeyStore:
+    """El registro con la misma semántica y sin base de datos.
+
+    Lo que un doble no puede demostrar —que la migración se aplica, que el índice parcial
+    cierra la carrera de emisión— vive en test_registry_db.py, marcado `integration`.
+    Todo lo demás se prueba aquí, y por eso corre en CI.
+
+    `finds` y `touches` cuentan **viajes al registro**, no escrituras efectivas: es la
+    carga real, que es lo que el refresco acotado existe para bajar.
+    """
+
+    def __init__(self, clock: Clock, ttl_days: int = 90):
+        self.clock = clock
+        self.ttl_s = ttl_days * 86400
+        self.rows: dict[UUID, dict] = {}
+        self.by_hash: dict[str, UUID] = {}
+        self.down = False
+        self.finds = self.touches = 0
+
+    def find(self, key_hash: str):
+        self._responds()
+        self.finds += 1
+        row = self.rows.get(self.by_hash.get(key_hash))
+        if row is None or row["revoked_at"] is not None:
+            return None
+        idle = self.clock() - row["last_used_at"]
+        # Caducada por desuso: indistinguible de inexistente, a propósito.
+        return None if idle > self.ttl_s else self._stored(row, idle)
+
+    def touch(self, id: UUID, throttle_s: int) -> None:
+        self._responds()
+        self.touches += 1
+        row = self.rows[id]
+        if self.clock() - row["last_used_at"] >= throttle_s:
+            row["last_used_at"] = self.clock()
+
+    def issue(self, correo: str):
+        self._responds()
+        key, key_hash, prefijo = registry.new_key()
+        for row in self.rows.values():
+            if row["correo"] == correo and row["revoked_at"] is None:
+                row["revoked_at"] = self.clock()
+        id = uuid4()
+        self.rows[id] = {
+            "id": id,
+            "correo": correo,
+            "prefijo": prefijo,
+            "scopes": [auth.SCOPE],
+            "created_at": self.clock(),
+            "last_used_at": self.clock(),
+            "revoked_at": None,
+        }
+        self.by_hash[key_hash] = id
+        return key, self._stored(self.rows[id], 0)
+
+    def revoke(self, id: UUID) -> None:
+        self._responds()
+        self.rows[id]["revoked_at"] = self.clock()
+
+    def _responds(self) -> None:
+        """Cae **por el mismo traductor** que la implementación de PostgreSQL.
+
+        Levantar `RegistryUnavailable` a mano ahorraría dos líneas y dejaría sin probar
+        justo lo que se quiere probar: la traducción a 503 y el estado que `/health`
+        reporta viven ahí, no aquí.
+        """
+        with registry.unavailable_on_failure():
+            if self.down:
+                raise OperationalError("el registro no responde", {}, Exception("registro caído"))
+
+    def _stored(self, row: dict, idle: float) -> registry.StoredKey:
+        return registry.StoredKey(
+            id=row["id"],
+            correo=row["correo"],
+            prefijo=row["prefijo"],
+            scopes=list(row["scopes"]),
+            created_at=ORIGIN + timedelta(seconds=row["created_at"]),
+            last_used_at=ORIGIN + timedelta(seconds=row["last_used_at"]),
+            expires_at=int(row["last_used_at"] + self.ttl_s),
+            idle_s=int(idle),
+        )
+
+
+@dataclass
+class ApiKeyHarness:
+    """El registro en memoria, su reloj y un app en modo `api_key` sobre los dos."""
+
+    store: InMemoryApiKeyStore
+    clock: Clock
+    _monkeypatch: pytest.MonkeyPatch
+
+    def verifier(self, **overrides) -> "auth.ApiKeyVerifier":
+        """El verificador suelto, sin levantar el app. Para las pruebas de reloj largo."""
+        return auth.ApiKeyVerifier(self.store, cfg(**{**API_KEY_MODE, **overrides}), clock=self.clock)
+
+    @contextmanager
+    def client(self, **overrides):
+        """El app real en modo `api_key`, con el doble detrás de las dos superficies."""
+        from fastapi.testclient import TestClient
+
+        from indicadores_sieej.main import create_app
+
+        verifier = self.verifier(**overrides)
+        # Se sustituye la fábrica y no `verifier()`: así el caché del proceso y su
+        # limpieza siguen siendo los de producción.
+        self._monkeypatch.setattr(auth, "build_verifier", lambda _cfg: verifier)
+        for name, value in {**BASE, **API_KEY_MODE, **overrides}.items():
+            self._monkeypatch.setenv(f"IIEGDB_{name.upper()}", str(value))
+        config.settings.cache_clear()
+        auth.verifier.cache_clear()
+        registry.close()
+        try:
+            with TestClient(create_app()) as client:
+                yield client
+        finally:
+            config.settings.cache_clear()
+            auth.verifier.cache_clear()
+            registry.close()
+
+
+@pytest.fixture
+def api_keys(monkeypatch) -> ApiKeyHarness:
+    clock = Clock()
+    return ApiKeyHarness(InMemoryApiKeyStore(clock), clock, monkeypatch)
