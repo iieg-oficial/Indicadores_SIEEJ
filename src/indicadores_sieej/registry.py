@@ -133,6 +133,15 @@ class ApiKey(Base):
 _ENGINE: Optional[Engine] = None
 _LOCK = threading.Lock()
 
+# El último estado observado del registro, para que `/health` lo reporte. Es un
+# resultado del tráfico real, no una sonda: ver `state()`.
+OK = "ok"
+DOWN = "caido"
+UNKNOWN = "desconocido"
+NOT_APPLICABLE = "no_aplica"
+
+_STATE = UNKNOWN
+
 
 def dsn(cfg: Optional[Settings] = None) -> str:
     """El DSN del registro. Falla ruidoso si el despliegue no lo configuró."""
@@ -167,11 +176,24 @@ def engine(cfg: Optional[Settings] = None) -> Engine:
 
 def close() -> None:
     """Cierra el motor. Para el apagado del servidor y para las pruebas."""
-    global _ENGINE
+    global _ENGINE, _STATE
     with _LOCK:
         if _ENGINE is not None:
             _ENGINE.dispose()
             _ENGINE = None
+        _STATE = UNKNOWN
+
+
+def state(cfg: Optional[Settings] = None) -> str:
+    """Lo último que se supo del registro: `ok`, `caido`, `desconocido` o `no_aplica`.
+
+    Es el resultado del **tráfico real**, no de una sonda, y esa es la decisión: `/health`
+    es la única ruta anónima del servidor, así que sondear la base desde ella la
+    convertiría en un amplificador de DoS. A cambio, un servidor recién arrancado dice
+    `desconocido` hasta que alguien se autentique, que es lo honesto.
+    """
+    cfg = cfg or settings()
+    return _STATE if cfg.auth_mode == "api_key" else NOT_APPLICABLE
 
 
 def alembic_config(cfg: Optional[Settings] = None) -> Config:
@@ -383,18 +405,25 @@ class PostgresApiKeyStore:
 
 @contextmanager
 def _unavailable_on_failure():
-    """Traduce cualquier fallo del registro a `RegistryUnavailable`, que es **503**.
+    """Traduce cualquier fallo del registro a `RegistryUnavailable`, que es **503**, y
+    de paso anota el estado que `/health` reporta.
 
     La traducción vive aquí y no en el verificador para que las rutas de emisión hereden
     el mismo comportamiento sin repetirlo. `IntegrityError` se deja pasar: no es el
     registro caído, es la carrera de emisión, y `issue` sabe qué hacer con ella.
     """
+    global _STATE
     try:
         yield
     except IntegrityError:
+        # La base respondió; quien rechazó fue el índice. Como estado del registro, eso
+        # es un `ok`.
+        _STATE = OK
         raise
     except SQLAlchemyError as exc:
+        _STATE = DOWN
         # El detalle va al log, nunca al cliente: un DSN o un nombre de tabla en la
         # respuesta es justo lo que docs/garantias.md no permite salir.
         log.warning("el registro de API keys no respondió: %s", type(exc).__name__)
         raise RegistryUnavailable("el registro de API keys no está disponible") from exc
+    _STATE = OK

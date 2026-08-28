@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from indicadores_sieej import connections, engine
+from indicadores_sieej import connections, engine, registry
 from indicadores_sieej.auth import authenticated
 from indicadores_sieej.catalog import find, get, load
 from indicadores_sieej.errors import BankError
@@ -76,8 +76,18 @@ def query_indicator(id: str, request: Request) -> dict:
 
 @operations.get("/health")
 def health() -> dict:
-    """Liveness. **Es la única ruta que responde sin autenticación.**"""
-    return {"status": "ok"}
+    """Liveness. **Es la única ruta que responde sin autenticación.**
+
+    Reporta además el último estado observado del registro de API keys. Sin eso, un
+    registro caído deja al operador a ciegas: `/ready` exige credencial, y con el registro
+    abajo devuelve 503 antes de llegar al handler — indistinguible de «todo caído».
+
+    Dos cosas que no se negocian aquí. **No abre ninguna conexión**: es la única ruta
+    anónima, y sondear la base desde ella la volvería un amplificador de DoS. Y **sigue
+    respondiendo 200 siempre**: es liveness de *este proceso*, y devolver 503 porque el
+    registro parpadeó haría que el orquestador reinicie un servidor sano.
+    """
+    return {"status": "ok", "registro": registry.state()}
 
 
 @operations.get("/ready", dependencies=AUTH)
