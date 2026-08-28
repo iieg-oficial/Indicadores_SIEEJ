@@ -131,10 +131,14 @@ def test_data_of_an_unknown_indicator_is_404(api, connection, process_settings):
 
 
 def test_health_answers_without_authentication(api):
-    """Es la única excepción; que siga siéndolo lo verifica la prueba de rutas de #18."""
+    """Es la única excepción; que siga siéndolo lo verifica la prueba de rutas de #18.
+
+    `registro` sale `no_aplica` porque estas pruebas corren en modo `static`: el estado
+    solo tiene sentido donde hay un registro que consultar.
+    """
     response = api.get("/health")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "ok", "registro": "no_aplica"}
 
 
 def test_ready_reports_every_pipeline_without_opening_pools(api):

@@ -14,6 +14,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                  |
 | D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                |
 | D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura           |
+| D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta  | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez  |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -53,6 +54,31 @@ variable.
 **El esquema se aplica a mano**, con `python -m indicadores_sieej.cli migrar`, nunca al arrancar el
 servidor. Es la convención del ETL, y significa que el rol del servidor no necesita permisos de DDL
 en operación normal.
+
+## Qué pasa cuando el registro no responde (D11)
+
+Con el registro caído, la respuesta obvia —401— es la peor: le diría a cada consumidor que su
+credencial es mala y los mandaría a todos a pedir una nueva, convirtiendo un parpadeo en una
+estampida contra el registro que acaba de caerse. Por eso es **503**, que dice lo que de verdad pasa.
+
+Aun así, 503 para todos durante una caída es caro cuando el servidor **ya sabe** que esas credenciales
+eran buenas hace un minuto. De ahí el caché rancio: durante `IIEGDB_API_KEY_STALE_S` se sigue
+sirviendo la última verificación exitosa, y solo esa. Tres límites lo hacen aceptable:
+
+- Solo hay entradas **positivas** en el caché. Una key que ya se supo revocada se desalojó al saberlo,
+  y una caída posterior no la resucita.
+- Ninguna entrada sobrevive a la caducidad de su propia key.
+- Con `IIEGDB_API_KEY_STALE_S=0` la ventana es nula y la caída es 503 desde el primer momento.
+
+Lo que se compra es disponibilidad; lo que se paga es que una revocación tarde hasta esa ventana en
+propagarse **durante la caída**. Está en el riesgo residual de [garantias.md](garantias.md).
+
+El estado del registro sale en `/health` y no en `/ready` porque `/ready` exige credencial: con el
+registro caído devuelve 503 antes de llegar al handler, y el operador no distingue «registro caído»
+de «todo caído». `/health` reporta el **último estado observado** por el tráfico real, sin abrir
+ninguna conexión —es la única ruta anónima del servidor, y sondear la base desde ella la convertiría
+en un amplificador de DoS— y **sigue respondiendo 200 siempre**: es liveness de este proceso, y un
+503 ahí haría que el orquestador reinicie un servidor sano.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 

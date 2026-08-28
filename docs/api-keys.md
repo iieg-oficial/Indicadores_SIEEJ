@@ -77,6 +77,10 @@ Está en la sección de riesgo residual de [garantias.md](garantias.md).
 No hay ningún trabajo programado. Cada verificación comprueba que el último uso quepa dentro de la
 ventana, y refresca ese último uso de forma acotada — no en cada petición.
 
+El refresco lo dispara el **uso real**, no el fallo de caché: una key servida desde el caché también
+cuenta como usada. Si no contara, la key más consultada del servidor sería justamente la que caducaría
+por desuso.
+
 Las tres ventanas se configuran, y **el servidor no arranca si el orden se rompe**:
 
 ```
@@ -91,6 +95,33 @@ sola, y **tardaría noventa días en notarse**. Por eso se valida al arrancar y 
 
 Como el caché vive en el proceso, una revocación tarda como mucho `IIEGDB_API_KEY_CACHE_TTL_S` en
 propagarse, y con varios workers eso aplica por worker.
+
+## Cuando el registro no responde
+
+Es **503, nunca 401**. Un 401 le diría a cada consumidor que su credencial es mala y los mandaría a
+todos a pedir una nueva, convirtiendo un parpadeo del registro en una estampida contra el registro.
+
+Antes de llegar al 503 hay una ventana de gracia: durante `IIEGDB_API_KEY_STALE_S` —10 minutos por
+defecto— se sigue sirviendo la **última verificación exitosa** de cada key, la que ya está en el
+caché. Nada más: una key que el servidor ya supo revocada se desalojó al saberlo y no vuelve, y
+ninguna entrada sobrevive a la caducidad de su propia key. Con `IIEGDB_API_KEY_STALE_S=0` la ventana
+es nula y la caída es 503 de entrada.
+
+El precio es que una revocación tarde hasta esa ventana en propagarse **mientras dure la caída**. Está
+aceptado en el riesgo residual de [garantias.md](garantias.md), y el porqué en
+[decisiones.md](decisiones.md).
+
+`/health` dice lo último que se supo del registro, sin abrir ninguna conexión y sin dejar de responder
+`200`:
+
+```json
+{ "status": "ok", "registro": "ok" }
+```
+
+`registro` vale `caido` cuando el último intento falló, `desconocido` mientras no haya pasado tráfico
+—el estado sale del uso real, no de una sonda— y `no_aplica` fuera del modo `api_key`. Va en `/health`
+y no en `/ready` porque `/ready` exige credencial: con el registro caído responde 503 antes del
+handler, y eso es indistinguible de «todo caído».
 
 ## El registro
 

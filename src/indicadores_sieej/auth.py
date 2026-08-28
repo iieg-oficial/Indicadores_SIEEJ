@@ -12,9 +12,14 @@ nada por decidir aquí. Lo que sí se comparte con FastMCP es el verificador: el
 `jwt` usa su `JWTVerifier` y el `static`, su `StaticTokenVerifier`.
 """
 
+import logging
+import time
+from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
+from typing import Callable, Optional
+from uuid import UUID
 
+import anyio.to_thread
 from fastapi import Request
 from fastmcp.server.auth.auth import AccessToken, TokenVerifier
 from fastmcp.server.auth.providers.jwt import JWTVerifier, StaticTokenVerifier
@@ -22,10 +27,15 @@ from starlette.datastructures import Headers
 from starlette.responses import JSONResponse
 
 from indicadores_sieej.config import Settings, settings
-from indicadores_sieej.errors import BankError, InsufficientScope, Unauthenticated
+from indicadores_sieej.errors import BankError, InsufficientScope, RegistryUnavailable, Unauthenticated
+from indicadores_sieej.registry import ApiKeyStore, PostgresApiKeyStore, StoredKey, hashed
+
+log = logging.getLogger(__name__)
 
 # El único scope del banco. Todo lo que no sea /health lo exige.
 SCOPE = "indicadores:read"
+
+DAY_S = 86400
 
 
 def _static_tokens(raw: str) -> dict[str, dict]:
@@ -50,6 +60,192 @@ def _static_tokens(raw: str) -> dict[str, dict]:
     return tokens
 
 
+@dataclass
+class _Cached:
+    """Una verificación exitosa, guardada para no consultar el registro en cada petición.
+
+    Los tres tiempos van en el **reloj monótono del proceso**; el de la base solo entra
+    por `idle_s`, que es lo que fija el punto de partida. Mezclar los dos relojes sería
+    justo el error que la caducidad medida en la base evita.
+    """
+
+    access: AccessToken
+    id: UUID
+    # Hasta cuándo se sirve sin volver a preguntar.
+    fresh_until: float
+    # Cuándo caduca la key misma. La entrada **nunca** lo sobrevive.
+    dead_at: float
+    # Hasta cuándo se sirve esta lectura si el registro deja de responder.
+    stale_until: float
+    # Cuándo se sabe refrescado `last_used_at` en la base.
+    touched_at: float
+
+
+class ApiKeyVerifier(TokenVerifier):
+    """Verifica una API key contra el registro. Es el modo de producción, decidido en #29.
+
+    Se construye **sin** `required_scopes`, como los otros dos: el scope lo revisa
+    `identify` para poder responder 403 en vez de 401.
+
+    Depende de `ApiKeyStore`, no de SQLAlchemy: es lo que permite ejercitar todo el
+    recorrido en CI sin una base viva. `clock` se inyecta por la misma razón — con él, la
+    prueba de una key usada cada 30 s durante cien días corre en milisegundos.
+    """
+
+    def __init__(
+        self,
+        store: ApiKeyStore,
+        cfg: Settings,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        super().__init__(base_url=cfg.base_url)
+        self.store = store
+        self.cfg = cfg
+        self.clock = clock
+        # Solo entradas positivas. Cachear el negativo dejaría que un anónimo llene la
+        # memoria con hashes inventados: el tamaño quedaría atado a lo que manda el
+        # atacante en vez de al número de keys vivas.
+        self._cache: dict[str, _Cached] = {}
+
+    async def verify_token(self, token: str) -> Optional[AccessToken]:
+        """La API key del `Authorization: Bearer`, o None si no sirve.
+
+        **None significa 401 y solo eso**: key inexistente, revocada o caducada por
+        desuso, tres casos indistinguibles a propósito. Un registro que no responde no
+        es None, es `RegistryUnavailable` — ver el porqué en errors.py.
+        """
+        key_hash = hashed(token)
+        now = self.clock()
+
+        entry = self._cache.get(key_hash)
+        if entry is not None and now < entry.fresh_until:
+            await self._touch(entry, now)
+            return entry.access
+
+        try:
+            stored = await self._find(key_hash)
+        except RegistryUnavailable:
+            stale = self._stale(key_hash, now)
+            if stale is None:
+                raise
+            # A propósito **sin** refrescar el último uso: durante una caída el refresco
+            # también falla, y reintentarlo en cada petición solo llenaría el log.
+            return stale.access
+
+        if stored is None:
+            self._cache.pop(key_hash, None)
+            return None
+
+        entry = self._remember(key_hash, stored, now)
+        await self._touch(entry, now)
+        return entry.access
+
+    def forget(self, key_hash: str) -> None:
+        """Saca una key del caché de **este** proceso, para que su revocación sea inmediata.
+
+        Recibe el hash porque es lo que `AccessToken.token` ya lleva: quien revoca tiene
+        la identidad a la mano y no necesita volver a ver la key. En los demás workers la
+        revocación tarda lo que dure su propia entrada — el caché vive en el proceso y no
+        hay nada que lo invalide desde fuera.
+        """
+        self._cache.pop(key_hash, None)
+
+    def _stale(self, key_hash: str, now: float) -> Optional[_Cached]:
+        """La última verificación buena, si todavía se puede servir con el registro caído.
+
+        Compra disponibilidad a cambio de que una revocación tarde hasta
+        `IIEGDB_API_KEY_STALE_S` en propagarse **durante la caída**. Tres bordes la hacen
+        aceptable, y los tres importan:
+
+        - Solo hay entradas **positivas**: una key que ya se supo muerta se desalojó al
+          saberlo y no revive por una caída posterior.
+        - `stale_until` nunca pasa de `dead_at`, así que esto no resucita una caducada.
+        - Con `IIEGDB_API_KEY_STALE_S=0` la ventana es nula y la caída es 503 de entrada,
+          que es la salida para un despliegue que prefiera cortar antes que aguantar.
+        """
+        entry = self._cache.get(key_hash)
+        return entry if entry is not None and now < entry.stale_until else None
+
+    async def _find(self, key_hash: str) -> Optional[StoredKey]:
+        """La consulta al registro, **fuera del event loop**.
+
+        `identify` es `async` y el middleware ASGI de `/mcp` la espera directo, sin la red
+        de threadpool que FastAPI tiende bajo los handlers `def`. Una consulta síncrona
+        aquí bloquearía el proceso entero en cada fallo de caché, así que el `to_thread`
+        no es opcional por más que un `await` sobre una consulta de una línea se vea
+        simplificable.
+        """
+        return await anyio.to_thread.run_sync(self.store.find, key_hash)
+
+    async def _touch(self, entry: _Cached, now: float) -> None:
+        """Refresca `last_used_at` si lleva más de `touch_s` sin refrescarse.
+
+        Lo dispara el **uso real**, no el fallo de caché: una key servida desde el caché
+        también cuenta como usada, y si no contara, una key muy consultada caducaría por
+        desuso. Se hace `await`, no fire-and-forget, pero envuelto: **un refresco fallido
+        nunca puede tumbar una autenticación.** Como no se marca `touched_at`, el
+        siguiente uso lo reintenta.
+        """
+        if now - entry.touched_at <= self.cfg.api_key_touch_s:
+            return
+        try:
+            await anyio.to_thread.run_sync(self.store.touch, entry.id, self.cfg.api_key_touch_s)
+        except BankError:
+            log.warning("no se pudo refrescar el último uso de una API key; la verificación sigue")
+            return
+        entry.touched_at = now
+        entry.dead_at = now + self.cfg.api_key_ttl_days * DAY_S
+
+    def _remember(self, key_hash: str, stored: StoredKey, now: float) -> _Cached:
+        """Guarda la verificación. La entrada **nunca vive más que la key**.
+
+        Con eso, la corrección deja de depender del orden de las tres ventanas — que
+        config.py valida al arrancar de todos modos.
+        """
+        dead_at = now + max(self.cfg.api_key_ttl_days * DAY_S - stored.idle_s, 0)
+        entry = _Cached(
+            access=_access(stored, key_hash),
+            id=stored.id,
+            fresh_until=min(now + self.cfg.api_key_cache_ttl_s, dead_at),
+            dead_at=dead_at,
+            stale_until=min(now + self.cfg.api_key_stale_s, dead_at),
+            # Lo que ya llevaba sin usarse cuando la base la leyó: sin esto, una key que
+            # vuelve tras semanas parada no se refrescaría hasta una hora después.
+            touched_at=now - stored.idle_s,
+        )
+        self._cache[key_hash] = entry
+        return entry
+
+
+def _access(stored: StoredKey, key_hash: str) -> AccessToken:
+    """La identidad que ven las dos superficies.
+
+    Dos decisiones que no son de estilo:
+
+    - `client_id` y `subject` llevan el **UUID de la fila, no el correo**. Si llevaran el
+      correo, cada línea del log de auditoría sería dato personal.
+    - `token` lleva el **hash**, no la key en claro. El campo es obligatorio en el modelo
+      de FastMCP y el objeto acaba en manos de terceros; con el hash ahí, la key en claro
+      no existe en el proceso más allá de la función que la convirtió. `StaticTokenVerifier`
+      sí guarda el token, y por eso conviene decir que esto es deliberado.
+
+    `claims` carga lo que `GET /v1/api-keys/actual` devuelve sin volver a tocar la base.
+    """
+    return AccessToken(
+        token=key_hash,
+        client_id=str(stored.id),
+        subject=str(stored.id),
+        scopes=list(stored.scopes),
+        expires_at=stored.expires_at,
+        claims={
+            "correo": stored.correo,
+            "prefijo": stored.prefijo,
+            "created_at": stored.created_at.isoformat(),
+            "last_used_at": stored.last_used_at.isoformat(),
+        },
+    )
+
+
 def build_verifier(cfg: Settings) -> TokenVerifier:
     """Arma el verificador que corresponde al modo de autenticación.
 
@@ -72,6 +268,10 @@ def build_verifier(cfg: Settings) -> TokenVerifier:
             audience=cfg.audience,
             base_url=cfg.base_url,
         )
+    if cfg.auth_mode == "api_key":
+        # Construirlo no conecta: el motor del registro es perezoso. Un DSN malo se
+        # entera en la primera verificación, con un 503 y no con una caída al arrancar.
+        return ApiKeyVerifier(PostgresApiKeyStore(cfg), cfg)
     return StaticTokenVerifier(_static_tokens(cfg.static_tokens.get_secret_value()))
 
 

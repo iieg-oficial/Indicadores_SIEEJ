@@ -59,6 +59,14 @@ catalogados. **Eso es correcto y deseado**: los indicadores son información pú
 control no está en ocultar los datos, sino en que **solo se expone lo curado**, con su definición,
 unidad, fuente y notas al lado.
 
+**Una revocación tarda en propagarse.** El caché de verificación vive en el proceso, así que revocar
+una API key surte efecto en cada worker cuando expira su entrada: hasta `IIEGDB_API_KEY_CACHE_TTL_S`
+en operación normal, y hasta `IIEGDB_API_KEY_STALE_S` mientras el registro esté caído, porque
+entonces se sigue sirviendo la última verificación buena. Se acepta a cambio de que un parpadeo del
+registro no deje fuera a todos los consumidores a la vez; un despliegue que prefiera lo contrario
+pone `IIEGDB_API_KEY_STALE_S=0`. Nada de esto resucita una key ya conocida como muerta ni una
+caducada: el caché solo guarda verificaciones exitosas y ninguna entrada sobrevive a su propia key.
+
 ---
 
 Tabla completa de errores: [errores.md](errores.md).

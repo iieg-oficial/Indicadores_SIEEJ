@@ -49,10 +49,13 @@ class Settings(BaseSettings):
     # permisos de escritura. Eso rompería la garantía de solo lectura en todas a la vez.
     registry_dsn: Optional[SecretStr] = None
 
-    # Las tres ventanas del registro de API keys. Ver docs/api-keys.md.
+    # Las ventanas del registro de API keys. Ver docs/api-keys.md.
     api_key_ttl_days: int = 90
     api_key_touch_s: int = 3600
     api_key_cache_ttl_s: int = 60
+    # Cuánto se sigue sirviendo una verificación ya hecha mientras el registro no
+    # responde. Con 0 se apaga y una caída del registro es 503 desde el primer momento.
+    api_key_stale_s: int = 600
 
     # --- Límites y operación ---
     row_limit: int = 5000
@@ -90,18 +93,24 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _coherent_api_key_windows(self) -> "Settings":
-        """El orden de las tres ventanas es lo que hace correcta la caducidad por desuso.
+        """El orden de las ventanas es lo que hace correcta la caducidad por desuso.
 
         Una key en uso refresca su `last_used_at` porque el caché expira antes que la
         ventana de refresco, y esa antes que la de caducidad. Invertir el orden —subir el
         caché "para bajar carga", por ejemplo— haría que una key en uso continuo caducara
         sola, y tardaría noventa días en notarse. Por eso se falla al arrancar.
+
+        La ventana de caché rancio va aparte porque no es de la misma familia: no ordena
+        el refresco, sino cuánto se aguanta una caída. Solo tiene que **durar más que el
+        caché fresco**; por debajo sería código muerto disfrazado de configuración.
         """
         if not self.api_key_cache_ttl_s < self.api_key_touch_s < self.api_key_ttl_days * 86400:
             raise ValueError(
                 "las ventanas del registro deben cumplir "
                 "IIEGDB_API_KEY_CACHE_TTL_S < IIEGDB_API_KEY_TOUCH_S < IIEGDB_API_KEY_TTL_DAYS en segundos"
             )
+        if self.api_key_stale_s and self.api_key_stale_s < self.api_key_cache_ttl_s:
+            raise ValueError("IIEGDB_API_KEY_STALE_S debe ser 0 —para apagarlo— o al menos IIEGDB_API_KEY_CACHE_TTL_S")
         return self
 
     def serves(self, pipeline: str) -> bool:
