@@ -53,12 +53,13 @@ institucional. Decidido en #29; el detalle está en [api-keys.md](api-keys.md).
 
 ### El registro de API keys
 
-| Variable                     | Oblig. | Descripción                                                    |
-| ---------------------------- | :----: | -------------------------------------------------------------- |
-| `IIEGDB_REGISTRY_DSN`        |   Sí   | DSN completo de la base del registro, con **rol de escritura** |
-| `IIEGDB_API_KEY_TTL_DAYS`    |   No   | Caducidad por desuso; por defecto `90`                         |
-| `IIEGDB_API_KEY_TOUCH_S`     |   No   | Cada cuánto se refresca el último uso; por defecto `3600`      |
-| `IIEGDB_API_KEY_CACHE_TTL_S` |   No   | Vida de la key en el caché del proceso; por defecto `60`       |
+| Variable                     | Oblig. | Descripción                                                          |
+| ---------------------------- | :----: | -------------------------------------------------------------------- |
+| `IIEGDB_REGISTRY_DSN`        |   Sí   | DSN completo de la base del registro, con **rol de escritura**       |
+| `IIEGDB_API_KEY_TTL_DAYS`    |   No   | Caducidad por desuso; por defecto `90`                               |
+| `IIEGDB_API_KEY_TOUCH_S`     |   No   | Cada cuánto se refresca el último uso; por defecto `3600`            |
+| `IIEGDB_API_KEY_CACHE_TTL_S` |   No   | Vida de la key en el caché del proceso; por defecto `60`             |
+| `IIEGDB_API_KEY_STALE_S`     |   No   | Cuánto se aguanta un registro caído; por defecto `600`, `0` lo apaga |
 
 > `IIEGDB_REGISTRY_DSN` **no se deriva de `IIEGDB_PG_*`** ni cae de vuelta en él. Ese bloque es el rol
 > de **solo lectura** de las 33 bases del ETL; derivar de ahí crearía presión para concederle
@@ -67,6 +68,10 @@ institucional. Decidido en #29; el detalle está en [api-keys.md](api-keys.md).
 **Las tres ventanas tienen que cumplir `CACHE_TTL_S < TOUCH_S < TTL_DAYS`**, y el servidor no arranca
 si no. Es lo que hace que una key en uso continuo refresque su último uso antes de caducar: subir el
 caché "para bajar carga" haría que una key activa caducara sola, y tardaría noventa días en notarse.
+
+`STALE_S` va aparte porque no es de la misma familia: no ordena el refresco, sino cuánto se sigue
+sirviendo una verificación ya hecha mientras el registro no responde. Solo tiene que **durar más que
+`CACHE_TTL_S`** —por debajo sería código muerto— y el servidor también lo valida al arrancar.
 
 ### El formato de `IIEGDB_STATIC_TOKENS`
 
