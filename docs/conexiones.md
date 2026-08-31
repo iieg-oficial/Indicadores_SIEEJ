@@ -86,5 +86,6 @@ o `502` según corresponda.
 
 ---
 
+Cómo se crea y se otorga el rol de lectura: [roles-readonly.md](roles-readonly.md).
 Variables de entorno completas: [configuracion.md](configuracion.md).
 Códigos de error: [errores.md](errores.md).
