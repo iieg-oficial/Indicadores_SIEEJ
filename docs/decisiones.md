@@ -2,21 +2,22 @@
 
 Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan en otro lado.
 
-|  #  | Decisión               | Elección                                                 | Consecuencia                                                                     |
-| :-: | ---------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| D1  | Framework              | **FastMCP 3.x**                                          | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos          |
-| D2  | Transporte MCP         | **Streamable HTTP** en `/mcp`, remoto y multiusuario     | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD        |
-| D3  | Superficie doble       | **MCP + REST en el mismo ASGI app**                      | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica  |
-| D4  | Dónde vive el catálogo | **En este repositorio**                                  | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable                |
-| D5  | Motor de ejecución     | **Propio**, portado de ETL-SIEEJ                         | Sin dependencia de `core.*` del ETL; el proyecto es autónomo                     |
-| D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura | El servidor necesita red y credenciales; no hay intermediario HTTP               |
-| D7  | Contrato de salida     | **Formato largo de 5 columnas**                          | 33 esquemas distintos se vuelven intercambiables para el agente                  |
-| D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                | Impide que este catálogo y el que quedó en el ETL se bifurquen                   |
-| D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP          | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                 |
-| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                     | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura            |
-| D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta  | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez   |
-| D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP    | Es de donde sale la primera credencial; exigir una sería un círculo              |
-| D13 | Visibilidad del repo   | **Interno**, igual que ETL-SIEEJ                         | Abrirlo publicaría de refilón el esquema de un repositorio que se decidió cerrar |
+|  #  | Decisión               | Elección                                                  | Consecuencia                                                                         |
+| :-: | ---------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| D1  | Framework              | **FastMCP 3.x**                                           | Un solo proceso sirve MCP y REST; auth y middleware ya vienen resueltos              |
+| D2  | Transporte MCP         | **Streamable HTTP** en `/mcp`, remoto y multiusuario      | Requiere auth, TLS y despliegue; ningún cliente recibe credenciales de BD            |
+| D3  | Superficie doble       | **MCP + REST en el mismo ASGI app**                       | Consumidores no-MCP (tableros, scripts, Power BI) usan REST sin duplicar lógica      |
+| D4  | Dónde vive el catálogo | **En este repositorio**                                   | Este repo es el dueño único; ETL-SIEEJ no conserva copia editable                    |
+| D5  | Motor de ejecución     | **Propio**, portado de ETL-SIEEJ                          | Sin dependencia de `core.*` del ETL; el proyecto es autónomo                         |
+| D6  | Acceso a datos         | **Conexión directa** a cada base con rol de solo lectura  | El servidor necesita red y credenciales; no hay intermediario HTTP                   |
+| D7  | Contrato de salida     | **Formato largo de 5 columnas**                           | 33 esquemas distintos se vuelven intercambiables para el agente                      |
+| D8  | Esquema del YAML       | **Congelado en v1**, con `extra="forbid"`                 | Impide que este catálogo y el que quedó en el ETL se bifurquen                       |
+| D9  | Verificación de auth   | **Propia**, sobre el `TokenVerifier` de FastMCP           | Un solo lugar decide quién entra; hay que envolver `/mcp` a mano                     |
+| D10 | Registro de API keys   | **Base propia**, migrada con Alembic                      | El servicio estrena escritura; ETL-SIEEJ sigue siendo de solo lectura                |
+| D11 | Registro caído         | **Se aguanta con caché rancio**, y `/health` lo reporta   | Un parpadeo del registro no debe dejar fuera a todos los consumidores a la vez       |
+| D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP     | Es de donde sale la primera credencial; exigir una sería un círculo                  |
+| D13 | Visibilidad del repo   | **Interno**, igual que ETL-SIEEJ                          | Abrirlo publicaría de refilón el esquema de un repositorio que se decidió cerrar     |
+| D14 | Rol de lectura         | **Uno dedicado, `indicadores_ro`, con `GRANT` por vista** | Revocar el acceso del servidor no toca al ETL; cada indicador nuevo exige un `GRANT` |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -132,6 +133,28 @@ Que sea interno **no relaja el criterio de qué no se versiona**, que está escr
 [CONTRIBUTING.md](../CONTRIBUTING.md). Por dos razones: un repositorio interno se filtra igual, y la
 decisión es reversible — el día que se abra, lo que ya entró a la historia de git no se quita sin
 reescribirla.
+
+## Por qué el rol de lectura es dedicado (D14)
+
+Cierra la decisión abierta A5. La alternativa era reutilizar un usuario que ya existe en el servidor:
+ahorra el alta de hoy y cobra después en tres lados.
+
+- **Revocar.** Con un rol propio, cortarle el acceso al servidor es `ALTER ROLE ... NOLOGIN`. Con el
+  usuario del ETL, cortarlo es parar el ETL.
+- **Trazar.** El registro de auditoría dice qué consumidor pidió qué indicador; `pg_stat_activity`
+  dice qué conexión abrió la consulta. Con un usuario compartido, la segunda mitad se pierde.
+- **La garantía de solo lectura.** El usuario del ETL escribe. Si es el mismo, lo único que impide
+  una escritura es el servidor; con un rol en `default_transaction_read_only`, la impide la base
+  aunque el servidor tenga un bug.
+
+Lo que se paga es **un `GRANT` por indicador nuevo**, y es el paso que más se va a repetir en cuanto
+el catálogo crezca más allá del piloto. Por eso el procedimiento quedó escrito en
+[roles-readonly.md](roles-readonly.md) y no solo ejecutado una vez.
+
+Una precisión que cambia el alta: **los roles son del clúster, no de la base**. Como las cuatro bases
+del piloto viven en el mismo servidor, no son cuatro roles sino uno con permisos otorgados base por
+base — que es lo que ya asumía `IIEGDB_PG_USER`, una sola credencial para todo el servidor por
+defecto.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 
