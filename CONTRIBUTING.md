@@ -51,9 +51,32 @@ git config core.hooksPath .githooks
 - Hacia `main`, con `Closes #N`.
 - CI verde. La aprobación se exigirá cuando el repositorio tenga más de un ingeniero activo;
   hoy la protección de `main` solo obliga a los checks.
-- Sin `.env`, sin DSN, sin tokens, sin credenciales.
+- Sin credenciales de ninguna clase — ver [Qué no se versiona](#qué-no-se-versiona).
 - Un PR que toca `catalogo/` **debería** revisarlo alguien del área temática del indicador, no solo
   desarrollo: el YAML contiene definiciones institucionales, no solo SQL.
+
+## Qué no se versiona
+
+El repositorio es **interno** (D13 en [docs/decisiones.md](docs/decisiones.md)), y eso **no relaja
+esta lista**: un repositorio interno se filtra igual, y lo que entra a la historia de git no sale sin
+reescribirla.
+
+Nunca:
+
+- **Credenciales de cualquier tipo** — DSN completos, contraseñas, API keys, tokens estáticos.
+  `.env.example` lleva placeholders y nada más, y `alembic.ini` no lleva `sqlalchemy.url` por eso
+  mismo.
+- **Hosts, IPs y topología de red** internos. El campo `pipeline` de un YAML nombra una base, no un
+  servidor: a qué host apunta lo resuelve el `.env` del despliegue.
+- **Volcados de datos**, aunque el indicador sea información pública. Aquí se catalogan consultas, no
+  resultados.
+
+Sí, y a sabiendas:
+
+- Los **nombres de las vistas y MV de origen** (`origen`) y los de los pipelines. Son la trazabilidad
+  que hace revisable un indicador por alguien del área temática, y son también lo que ata la
+  visibilidad de este repositorio a la de ETL-SIEEJ. Si algún día se reconsidera D13, **eso** es lo
+  que hay que revisar — no el `.env.example`.
 
 ## CI
 
