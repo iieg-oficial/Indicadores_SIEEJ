@@ -2,6 +2,10 @@
 
 Cómo pasar de "existe un pipeline en ETL-SIEEJ" a "sus indicadores responden en `/mcp` y en `/v1`".
 
+> **Para agregar un indicador a un pipeline que ya está dado de alta —el caso normal— empieza en el
+> [paso 4](#4-escribir-el-yaml).** Los tres primeros son solo para un pipeline que todavía no existe
+> aquí, y saltárselos no cambia nada de lo demás.
+
 Los dos repositorios se reparten el trabajo así: **ETL-SIEEJ carga los datos y publica la vista;
 aquí solo se cataloga y se expone.** Si un paso pide tocar el esquema, el pipeline o el refresh de
 una MV, ese paso no es de este repositorio.
