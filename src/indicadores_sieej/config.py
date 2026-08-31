@@ -9,7 +9,7 @@ La tabla completa de variables está en docs/configuracion.md.
 from functools import lru_cache
 from typing import Literal, Optional
 
-from pydantic import SecretStr, model_validator
+from pydantic import AnyHttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ALL = "*"
@@ -42,7 +42,11 @@ class Settings(BaseSettings):
     jwks_uri: Optional[str] = None
     issuer: Optional[str] = None
     audience: Optional[str] = None
-    base_url: str
+    # `AnyHttpUrl` y no `str`: FastMCP la convierte a `AnyHttpUrl` al construir el
+    # verificador, que es **la primera petición autenticada** y no el arranque. Con `str`
+    # una URL mal escrita pasa la validación de aquí y revienta después con un 500, que
+    # es justo lo que este módulo existe para impedir.
+    base_url: AnyHttpUrl
 
     # DSN propio y rol propio, **nunca derivado de IIEGDB_PG_***: ese bloque es el rol de
     # solo lectura de las 33 bases del ETL, y derivar de ahí crearía presión para darle

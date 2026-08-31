@@ -30,6 +30,14 @@ def test_pipelines_accepts_a_list_and_an_asterisk():
     assert _cfg(pipelines="*").serves("cualquiera")
 
 
+def test_a_malformed_base_url_blocks_startup():
+    """Con `base_url: str` esto arrancaba y reventaba con un 500 en la primera petición
+    autenticada, porque quien la valida de verdad es FastMCP al construir el verificador.
+    El placeholder `https://<host>` del .env.example era exactamente ese caso."""
+    with pytest.raises(ValidationError, match="base_url"):
+        _cfg(base_url="https://<host>")
+
+
 def test_static_mode_requires_its_tokens():
     with pytest.raises(ValidationError, match="IIEGDB_STATIC_TOKENS"):
         _cfg(auth_mode="static", static_tokens=None)

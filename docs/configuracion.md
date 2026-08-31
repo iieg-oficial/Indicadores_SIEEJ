@@ -27,7 +27,7 @@ más tarde al servir la primera consulta.
 | `IIEGDB_JWKS_URI`      | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_ISSUER`        | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_AUDIENCE`      | Condicional | Verificación en modo `jwt`            |
-| `IIEGDB_BASE_URL`      |     Sí      | URL pública del servidor              |
+| `IIEGDB_BASE_URL`      |     Sí      | URL pública. Se valida como URL       |
 | `IIEGDB_REGISTRY_DSN`  | Condicional | Base del registro, en modo `api_key`  |
 
 ### Límites y operación

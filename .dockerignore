@@ -1,0 +1,34 @@
+# Lo primero que hace este archivo es impedir que un `.env` con DSN reales entre a la
+# imagen por un `COPY . .` descuidado. El Dockerfile copia rutas explícitas, así que
+# hoy no podría pasar; esto es el cinturón que sigue puesto si alguien lo cambia.
+.env
+*.env
+!.env.example
+
+.git
+.github
+.githooks
+.gitignore
+.pre-commit-config.yaml
+
+# El intérprete de la imagen es el suyo: un venv del host trae binarios de otra libc.
+.venv
+venv
+env
+
+__pycache__
+*.py[cod]
+*.egg-info
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+
+# Nada de esto se ejecuta dentro del contenedor, y todo invalida la caché de capas.
+tests
+docs
+*.md
+.claude
+compose.yaml
+Dockerfile
+.dockerignore
