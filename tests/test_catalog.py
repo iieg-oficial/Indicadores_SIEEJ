@@ -90,6 +90,23 @@ def test_binds_ignores_postgres_casts():
     assert BINDS.findall("valor::numeric = CAST(:cve_geo AS text)") == ["cve_geo"]
 
 
+# --- El catálogo entero ---
+
+
+def test_an_empty_directory_is_not_a_valid_catalog(tmp_path):
+    """Cero indicadores no es un catálogo sano al que nadie catalogó nada: es un
+    despliegue al que el catálogo no llegó."""
+    with pytest.raises(InvalidCatalog) as exc:
+        load(tmp_path)
+    assert str(tmp_path) in str(exc.value), "el error tiene que nombrar el directorio"
+
+
+def test_a_directory_with_folders_but_no_yaml_is_not_valid_either(tmp_path):
+    (tmp_path / "pobreza").mkdir()
+    with pytest.raises(InvalidCatalog):
+        load(tmp_path)
+
+
 # --- Las siete validaciones, una prueba por mensaje ---
 
 

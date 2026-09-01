@@ -7,10 +7,11 @@ arrancar.
 
 import pytest
 
-from indicadores_sieej import connections, engine
-from indicadores_sieej.catalog import SUMMARY_FIELDS, get
+from indicadores_sieej import connections, engine, main
+from indicadores_sieej.catalog import SUMMARY_FIELDS, get, load
+from indicadores_sieej.errors import InvalidCatalog
 
-from .conftest import ROW
+from .conftest import ROW, TOKEN
 
 INDICATOR = "incidencia_delictiva_municipal"
 DATA = f"/v1/indicadores/{INDICATOR}/datos"
@@ -207,3 +208,12 @@ def test_there_is_no_global_cors_middleware(api):
     """Un CORSMiddleware de nivel superior sobre el MCP rompe .well-known y OPTIONS."""
     names = [middleware.cls.__name__ for middleware in api.app.user_middleware]
     assert "CORSMiddleware" not in names
+
+
+def test_the_server_does_not_start_with_an_empty_catalog(clients, monkeypatch, tmp_path):
+    """El catálogo se carga en el lifespan, así que un catálogo que no llegó al
+    despliegue revienta al arrancar y no al servir la primera consulta."""
+    monkeypatch.setattr(main, "load", lambda: load(tmp_path))
+    with pytest.raises(InvalidCatalog):
+        with clients(TOKEN):
+            pass

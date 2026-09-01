@@ -103,6 +103,16 @@ def load(root: Path = CATALOG_DIR) -> dict[str, Indicator]:
             raise InvalidCatalog(f"{path}: id duplicado '{ind.id}'")
         _validate(ind, path)
         indicators[ind.id] = ind
+
+    # Un catálogo vacío no viola ninguna de las siete validaciones —no hay archivo que
+    # las viole— y sin esto arrancaría un servidor que contesta lista vacía a todo
+    # descubrimiento: indistinguible desde fuera de uno sano al que nadie le pregunta lo
+    # correcto. Y la causa probable no es un borrado deliberado, es que el catálogo no
+    # llegó al despliegue: un COPY que falta, un volumen mal montado, un WORKDIR
+    # equivocado. Ese fallo conviene verlo al arrancar.
+    if not indicators:
+        raise InvalidCatalog(f"{root}: el catálogo no tiene ningún indicador")
+
     return indicators
 
 
