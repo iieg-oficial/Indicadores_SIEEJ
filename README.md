@@ -64,6 +64,9 @@ uvicorn indicadores_sieej.main:app --reload   # MCP en /mcp, REST en /v1, OpenAP
 
 ## Conectar un cliente MCP
 
+Si eres del equipo de análisis y solo quieres usarlo, la guía paso a paso —sin nada de esto— es
+**[docs/para-analisis.md](docs/para-analisis.md)**.
+
 Todo lo que responde exige credencial, salvo `/health` y la emisión. Así que el primer paso siempre
 es **pedir una API key**, que es de autoservicio: un correo, sin trámite.
 
@@ -142,6 +145,7 @@ viven en [`docs/`](docs/), uno por pregunta:
 [conexiones](docs/conexiones.md) ·
 [superficies](docs/superficies.md) ·
 [API keys](docs/api-keys.md) ·
+[guía para análisis](docs/para-analisis.md) ·
 [configuración](docs/configuracion.md) ·
 [despliegue](docs/despliegue.md) ·
 [versionado](docs/versionado.md) ·
