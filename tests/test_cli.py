@@ -9,6 +9,7 @@ import json
 import pytest
 
 from indicadores_sieej import cli
+from indicadores_sieej.catalog import load
 from indicadores_sieej.errors import InvalidCatalog
 
 from .conftest import ROW, cfg as _cfg
@@ -64,6 +65,15 @@ def test_validar_exits_with_error_and_names_the_file(capsys, monkeypatch):
     assert cli.main(["validar"]) == 1
     output = capsys.readouterr()
     assert "catalogo/pobreza/roto.yaml" in output.err
+    assert output.out == ""
+
+
+def test_validar_exits_with_error_on_an_empty_catalog(capsys, monkeypatch, tmp_path):
+    """El gate de CI es lo que impide que un catálogo que no llegó pase por sano."""
+    monkeypatch.setattr(cli, "load", lambda: load(tmp_path))
+    assert cli.main(["validar"]) == 1
+    output = capsys.readouterr()
+    assert "ningún indicador" in output.err
     assert output.out == ""
 
 

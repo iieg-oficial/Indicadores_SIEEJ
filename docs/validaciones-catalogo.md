@@ -22,6 +22,20 @@ consulta.
 > cuestión de operación, no de catálogo: un pipeline sin conexión resuelta no impide arrancar, sus
 > indicadores responden `503`. Ver [conexiones.md](conexiones.md).
 
+## Y una del catálogo entero
+
+| Validación                                  | Mensaje de error                        |
+| ------------------------------------------- | --------------------------------------- |
+| El catálogo carga **al menos un indicador** | `el catálogo no tiene ningún indicador` |
+
+No es una de las siete porque no hay ningún archivo que la viole: un directorio vacío pasa las siete
+sin despeinarse. Y sin ella arrancaría un servidor que contesta lista vacía a todo descubrimiento —
+indistinguible desde fuera de uno sano al que nadie le pregunta lo correcto.
+
+La causa probable no es que alguien haya borrado el catálogo, sino que **no llegó al despliegue**: un
+`COPY` que falta en la imagen, un volumen mal montado, un `WORKDIR` equivocado, un montaje sin
+permisos de lectura para el usuario no-root del contenedor. Ese fallo conviene verlo al arrancar.
+
 ## En tiempo de consulta
 
 Solo quedan las que dependen de los valores recibidos:
@@ -33,7 +47,7 @@ Solo quedan las que dependen de los valores recibidos:
 
 ## Gate de CI
 
-`python -m indicadores_sieej.cli validar` corre las siete y sale con código distinto de cero si algo
+`python -m indicadores_sieej.cli validar` las corre todas y sale con código distinto de cero si algo
 falla. Es lo que bloquea todo PR que toque `catalogo/`.
 
 ---
