@@ -19,6 +19,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D13 | Visibilidad del repo   | **Interno**, igual que ETL-SIEEJ                          | Abrirlo publicaría de refilón el esquema de un repositorio que se decidió cerrar     |
 | D14 | Rol de lectura         | **Uno dedicado, `indicadores_ro`, con `GRANT` por vista** | Revocar el acceso del servidor no toca al ETL; cada indicador nuevo exige un `GRANT` |
 | D15 | Alcance de la API      | **Interna**: no se publica a terceros                     | Sin CORS; los límites se dimensionan para consumidores conocidos del IIEG            |
+| D16 | Dónde se despliega     | **Servidor de la red interna, en http, sin TLS**          | Claude Code se conecta a un `/mcp` en http; las keys viajan en claro por esa red     |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -178,6 +179,28 @@ Lo que se sigue de decidir "interna":
 
 Es coherente con D13: el repositorio es interno, y publicar la API expondría de refilón la misma
 topología que esa decisión mantiene cerrada.
+
+## Dónde vive el servicio y por qué va sin TLS (D16)
+
+Cierra la decisión abierta A3. El servicio se despliega en un **servidor de la red interna del
+IIEG**, con `compose.yaml`, y se publica en **http**.
+
+Lo administra el mismo equipo que administra las bases del ETL, y de ahí se sigue el resto: la ruta
+de red hacia las cuatro bases del piloto es directa, los secretos llegan por el `.env` del host —que
+no se versiona nunca— y SEG-5 se cumple restringiendo por `pg_hba.conf` o firewall a ese host.
+
+**Que vaya sin TLS es la decisión, no un pendiente.** Los consumidores son áreas del IIEG dentro de
+la red del instituto y los datos son públicos institucionales, así que el certificado no compra nada
+que la red no dé ya. Lo que se paga, y queda escrito en [despliegue.md](despliegue.md):
+
+- Las API keys viajan en `Authorization: Bearer` **en claro** por la red de la oficina.
+- **Claude Code se conecta a un `/mcp` en http sin problema; Claude Desktop y varios conectores
+  remotos exigen `https`.** Quien quiera usarlo desde ahí necesita un certificado interno.
+
+Esto matiza a D2, que al elegir Streamable HTTP daba el TLS por supuesto: lo sigue requiriendo el día
+que el servicio salga de la red interna, y ese día es #77 — proxy inverso, `--proxy-headers` y
+revisar los límites. Es coherente con D15: mientras la API sea interna, la frontera de seguridad es
+la red.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 

@@ -17,6 +17,7 @@ una por pipeline. Este proyecto solo **lee**.
 
 | Si vas a…                                     | Lee                                                                                                                                                                                               |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Consultar el banco desde tu asistente         | [para-analisis.md](docs/para-analisis.md)                                                                                                                                                         |
 | Agregar o corregir un indicador               | [nuevo-flujo.md](docs/nuevo-flujo.md) desde el paso 4 → [anatomia-yaml.md](docs/anatomia-yaml.md) → [reglas-sql.md](docs/reglas-sql.md) → [periodos-y-geografia.md](docs/periodos-y-geografia.md) |
 | Dar de alta un flujo nuevo completo           | [nuevo-flujo.md](docs/nuevo-flujo.md)                                                                                                                                                             |
 | Tocar el motor de ejecución                   | [contrato-salida.md](docs/contrato-salida.md) → [reglas-sql.md](docs/reglas-sql.md) → [garantias.md](docs/garantias.md) → [errores.md](docs/errores.md)                                           |
@@ -29,6 +30,7 @@ una por pipeline. Este proyecto solo **lee**.
 | Dar acceso de lectura a una base o vista      | [roles-readonly.md](docs/roles-readonly.md) → [conexiones.md](docs/conexiones.md)                                                                                                                 |
 | Entender por qué algo está así                | [decisiones.md](docs/decisiones.md)                                                                                                                                                               |
 | Saber qué indicadores existen y de dónde leen | [catalogo-piloto.md](docs/catalogo-piloto.md)                                                                                                                                                     |
+| Levantar el servicio en un servidor           | [despliegue.md](docs/despliegue.md)                                                                                                                                                               |
 | Publicar una versión                          | [versionado.md](docs/versionado.md)                                                                                                                                                               |
 | Abrir un PR                                   | [CONTRIBUTING.md](CONTRIBUTING.md)                                                                                                                                                                |
 
