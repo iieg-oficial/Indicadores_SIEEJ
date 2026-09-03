@@ -65,8 +65,9 @@ exige una API key.
 
 ## Va sin TLS, a propósito
 
-El servicio se publica en **http dentro de la red del IIEG**, y eso es una decisión, no un pendiente
-olvidado. Lo que implica, dicho y no sobreentendido:
+El servicio se publica en **http dentro de la red del IIEG**, y eso es una decisión —D16 en
+[decisiones.md](decisiones.md)—, no un pendiente olvidado. Lo que implica, dicho y no
+sobreentendido:
 
 - **Las API keys viajan en `Authorization: Bearer` en claro por la red de la oficina.** Es riesgo
   aceptable para datos públicos institucionales y consumidores internos; deja de serlo el día que el
