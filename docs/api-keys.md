@@ -1,7 +1,11 @@
 # API keys
 
-La API es **pública y de autoservicio**: cualquiera pide una API key con su correo y la obtiene, sin
-trámite y sin proveedor de identidad. Decidido en #29.
+La emisión es **abierta y de autoservicio**: quien alcance el servicio pide una API key con su correo
+y la obtiene, sin trámite y sin proveedor de identidad. Decidido en #29.
+
+Abierta no quiere decir publicada: **el servicio es interno** y no se ofrece a terceros (D15 en
+[decisiones.md](decisiones.md)). Lo que no exige credencial previa es la emisión; llegar a esa ruta
+exige estar en la red donde vive el servidor.
 
 La key no protege el dato — los indicadores son información pública institucional, y eso ya está
 aceptado como riesgo residual en [garantias.md](garantias.md). La key **identifica al consumidor**,

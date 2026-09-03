@@ -18,6 +18,7 @@ Por qué el proyecto está hecho así. Cada una tiene consecuencias que se pagan
 | D12 | Emisión de API keys    | **Pública, con límite por IP**, y nunca como tool MCP     | Es de donde sale la primera credencial; exigir una sería un círculo                  |
 | D13 | Visibilidad del repo   | **Interno**, igual que ETL-SIEEJ                          | Abrirlo publicaría de refilón el esquema de un repositorio que se decidió cerrar     |
 | D14 | Rol de lectura         | **Uno dedicado, `indicadores_ro`, con `GRANT` por vista** | Revocar el acceso del servidor no toca al ETL; cada indicador nuevo exige un `GRANT` |
+| D15 | Alcance de la API      | **Interna**: no se publica a terceros                     | Sin CORS; los límites se dimensionan para consumidores conocidos del IIEG            |
 
 ## Por qué la verificación de auth es propia (D9)
 
@@ -155,6 +156,28 @@ Una precisión que cambia el alta: **los roles son del clúster, no de la base**
 del piloto viven en el mismo servidor, no son cuatro roles sino uno con permisos otorgados base por
 base — que es lo que ya asumía `IIEGDB_PG_USER`, una sola credencial para todo el servidor por
 defecto.
+
+## Hasta dónde llega la API (D15)
+
+Cierra la decisión abierta A6. La API **no se publica a terceros**: sus consumidores son áreas del
+IIEG, en la red del instituto.
+
+Conviene no confundir esa decisión con D12, que dice otra cosa. **Que la emisión sea abierta no
+significa que el servicio lo sea:** `POST /v1/api-keys` responde sin credencial porque es de donde
+sale la primera —exigir una sería un círculo—, pero para llegar a esa ruta hay que estar dentro de la
+red donde vive el servicio.
+
+Lo que se sigue de decidir "interna":
+
+- **No se configura CORS.** No hay consumidores web externos, así que no hace falta. El día que los
+  haya, va **por sub-app** y nunca como middleware global: un `CORSMiddleware` de nivel superior
+  sobre un servidor MCP con OAuth rompe las rutas `.well-known` y las peticiones `OPTIONS`.
+- **Los límites se dimensionan para consumidores conocidos**, no para tráfico anónimo de internet.
+  Abrirla a terceros obligaría a revisarlos y probablemente a escalonarlos por tipo de consumidor.
+- **El OpenAPI es interno.** Se publica autenticado en `/docs`, como el resto salvo `/health`.
+
+Es coherente con D13: el repositorio es interno, y publicar la API expondría de refilón la misma
+topología que esa decisión mantiene cerrada.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 
