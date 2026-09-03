@@ -136,6 +136,7 @@ viven en [`docs/`](docs/), uno por pregunta:
 [reglas del SQL](docs/reglas-sql.md) ·
 [periodos y geografía](docs/periodos-y-geografia.md) ·
 [validaciones](docs/validaciones-catalogo.md) ·
+[pruebas de integración](docs/pruebas-integracion.md) ·
 [errores](docs/errores.md) ·
 [garantías de seguridad](docs/garantias.md) ·
 [conexiones](docs/conexiones.md) ·
