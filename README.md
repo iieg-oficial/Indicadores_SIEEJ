@@ -143,6 +143,7 @@ viven en [`docs/`](docs/), uno por pregunta:
 [superficies](docs/superficies.md) ·
 [API keys](docs/api-keys.md) ·
 [configuración](docs/configuracion.md) ·
+[despliegue](docs/despliegue.md) ·
 [versionado](docs/versionado.md) ·
 [decisiones](docs/decisiones.md) ·
 [catálogo piloto](docs/catalogo-piloto.md)
