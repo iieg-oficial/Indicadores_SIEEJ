@@ -18,7 +18,10 @@ from .conftest import ROW, cfg as _cfg
 def test_listar_prints_clean_json(capsys):
     assert cli.main(["listar", "--tema", "empleo"]) == 0
     output = capsys.readouterr()
-    assert len(json.loads(output.out)) == 5
+    listado = json.loads(output.out)
+    # Sin contar indicadores: el catálogo crece y el punto de la prueba es la higiene
+    # del flujo, no cuántos hay hoy.
+    assert listado and all(item["tema"] == "empleo" for item in listado)
     assert output.err == "", "ningún log puede ensuciar stdout ni aparecer aquí"
 
 
@@ -54,7 +57,7 @@ def test_describir_with_an_unknown_id_exits_with_error(capsys):
 
 def test_validar_exits_with_zero_on_a_healthy_catalog(capsys):
     assert cli.main(["validar"]) == 0
-    assert "12 indicadores válidos" in capsys.readouterr().err
+    assert f"{len(load())} indicadores válidos" in capsys.readouterr().err
 
 
 def test_validar_exits_with_error_and_names_the_file(capsys, monkeypatch):
