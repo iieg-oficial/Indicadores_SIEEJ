@@ -1,7 +1,12 @@
 # Catálogo piloto
 
-Los **12 indicadores** con los que arranca el catálogo, y a qué vista real lee cada uno. Ya viven
+Los **12 indicadores** con los que arrancó el catálogo, y a qué vista real lee cada uno. Ya viven
 en `catalogo/<tema>/<id>.yaml`, migrados desde ETL-SIEEJ.
+
+> El catálogo ya no son 12. Este documento se conserva porque explica **por qué el formato largo
+> se diseñó así**: los tres temas del piloto son las tres formas de tabla del repositorio de
+> origen. Para saber qué indicadores existen hoy y de qué vista sale cada uno, ver
+> [cobertura-catalogo.md](cobertura-catalogo.md).
 
 Los tres temas cubren a propósito las **tres formas de tabla** del repositorio de origen: serie ya
 larga (`ilmm`), ancha por mes (`delitos_fuero_comun`) y ancha por concepto
@@ -58,7 +63,7 @@ Requieren **unpivot**: cada indicador es un `SELECT` de una columna distinta de 
 
 `ilmm` · `enoe_microdatos` · `delitos_fuero_comun` · `pobreza_multidimensional`
 
-Las cuatro viven en el servidor por defecto y se llaman igual que su pipeline, así que basta con
+Hoy son 15; la lista vigente está en `IIEGDB_PIPELINES` del `.env.example`. Las cuatro viven en el servidor por defecto y se llaman igual que su pipeline, así que basta con
 listarlas en `IIEGDB_PIPELINES`. Cada una necesita su rol de solo lectura.
 
 ## Trampas que aplican a todo el catálogo
