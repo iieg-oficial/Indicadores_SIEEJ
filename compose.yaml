@@ -1,4 +1,10 @@
-# Levanta el banco con **solo un `.env`**: `cp .env.example .env && docker compose up`.
+# Levanta el banco con **solo un `.env`**: `cp .env.dev.example .env && docker compose up`
+# en desarrollo, `.env.prod.example` en un despliegue.
+#
+# **El `.env` elige el perfil, no la línea de comandos.** Cada ejemplo trae dentro su
+# `COMPOSE_PROFILES`, que compose lee del `.env` igual que el resto: copiar el archivo
+# correcto es todo, y no hay ningún `--profile` que recordar. `registro` y `migraciones`
+# van sin perfil, así que corren en los dos.
 #
 # Trae el PostgreSQL del **registro de API keys** —la única base que este servicio
 # administra— y nada más. Las 33 bases del ETL viven fuera y son de solo lectura: a
@@ -49,9 +55,10 @@ services:
 
   servidor:
     <<: *servicio
+    profiles: ["prod"]
     ports:
       - "${PUERTO:-8000}:8000"
-    depends_on:
+    depends_on: &tras-migrar
       registro:
         condition: service_healthy
       migraciones:
@@ -59,6 +66,35 @@ services:
     # El servidor no guarda estado propio: el catálogo es de solo lectura y el caché de
     # API keys se reconstruye solo. Reiniciarlo en cualquier momento es seguro.
     restart: unless-stopped
+
+  # El mismo servidor con el ciclo de edición acortado. Lo que cambia es cómo llegan el
+  # código y el catálogo —montados, no copiados— y nada de la configuración: eso lo
+  # decide `IIEGDB_ENTORNO` del `.env`.
+  servidor-dev:
+    <<: *servicio
+    profiles: ["dev"]
+    ports:
+      - "${PUERTO:-8000}:8000"
+    depends_on: *tras-migrar
+    # `environment` **reemplaza** al del anchor en vez de fundirse con él, así que el DSN
+    # del registro se repite aquí: omitirlo dejaría a este servicio apuntando al `.env`,
+    # que es justo lo que compose existe para sobrescribir.
+    environment:
+      IIEGDB_REGISTRY_DSN: postgresql://${REGISTRO_USER:-registro}:${REGISTRO_PASSWORD:-registro_local}@registro:5432/${REGISTRO_DB:-registro}
+      IIEGDB_LOG_LEVEL: DEBUG
+    # De solo lectura: el contenedor nunca escribe ahí, y montarlos `:ro` lo deja dicho.
+    # El de `catalogo/` es el que importa — sin él, agregar un indicador exige reconstruir
+    # la imagen, y la promesa del README es «un YAML y cero líneas de Python».
+    volumes:
+      - ./src:/app/src:ro
+      - ./catalogo:/app/catalogo:ro
+    # `--reload-include '*.yaml'` no es opcional: uvicorn vigila **solo `*.py`** por
+    # defecto, así que sin esta bandera el mount de `catalogo/` está montado pero editar
+    # un indicador no despierta nada, y el ciclo corto que este perfil existe para dar
+    # no ocurre. Se verificó editando un YAML y viendo que el nombre cambiara.
+    command:
+      ["uvicorn", "indicadores_sieej.main:app", "--host", "0.0.0.0", "--port", "8000",
+       "--reload", "--reload-include", "*.yaml"]
 
 volumes:
   registro_datos:

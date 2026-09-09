@@ -40,13 +40,37 @@ Toda consulta devuelve las mismas cinco columnas —`cve_geo`, `nombre_geo`, `pe
 Levanta el servidor y el PostgreSQL del registro de API keys. No hace falta nada más:
 
 ```bash
-cp .env.example .env      # sirve tal cual; para leer bases reales, llena IIEGDB_PG_*
+cp .env.dev.example .env   # llena IIEGDB_PG_* para leer bases reales; sin eso también arranca
 docker compose up
 ```
 
-El `.env.example` arranca en modo `api_key` contra el PostgreSQL que trae `compose.yaml`.
-Las 33 bases del ETL viven fuera: sin ruta de red hacia ellas el servidor levanta igual, y sus
-indicadores responden `503`.
+Hay **dos ejemplos de `.env` y cada uno trae su perfil de compose adentro**, así que copiar el
+archivo correcto es todo lo que hay que hacer — no hay ningún `--profile` que recordar:
+
+| Archivo             | Perfil | Servicio       | Qué trae                                                                  |
+| ------------------- | ------ | -------------- | ------------------------------------------------------------------------- |
+| `.env.dev.example`  | `dev`  | `servidor-dev` | `src/` y `catalogo/` montados, `--reload`, `DEBUG`. Nueve valores, no 25 |
+| `.env.prod.example` | `prod` | `servidor`     | La imagen tal cual, `restart: unless-stopped`                             |
+
+En dev, **editar un YAML del catálogo no exige reconstruir la imagen**: el mount y el `--reload` lo
+levantan en un segundo. Y `IIEGDB_ENTORNO=dev` resuelve los dos defaults que impiden un arranque
+local —`sslmode` cae a `disable` y `base_url` a `http://localhost:8000`—, avisándolo con un
+`WARNING` al arrancar. Detalle en [docs/configuracion.md](docs/configuracion.md#los-dos-entornos).
+
+Ambos arrancan en modo `api_key` contra el PostgreSQL que trae `compose.yaml`. Las 33 bases del ETL
+viven fuera: sin ruta de red hacia ellas el servidor levanta igual, y sus indicadores responden
+`503`.
+
+> **Si ya tenías un `.env`**, agrégale `COMPOSE_PROFILES=prod` (o `dev`). Sin esa línea compose
+> levanta `registro` y `migraciones` y **ningún servidor**, porque los dos servicios de servidor
+> están detrás de un perfil.
+
+Para **cambiar de perfil** hay que bajar el otro primero — `docker compose down` solo alcanza al
+perfil activo, y el servidor viejo deja el puerto 8000 tomado:
+
+```bash
+COMPOSE_PROFILES=dev,prod docker compose down
+```
 
 ### Sin Docker
 
@@ -55,7 +79,7 @@ pip install -e ".[dev]"
 pre-commit install --hook-type commit-msg
 git config core.hooksPath .githooks
 
-cp .env.example .env      # y llena los DSN
+cp .env.dev.example .env  # y llena los DSN
 pytest -m "not integration"
 python -m indicadores_sieej.cli listar --tema empleo
 

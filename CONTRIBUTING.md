@@ -64,7 +64,7 @@ reescribirla.
 Nunca:
 
 - **Credenciales de cualquier tipo** — DSN completos, contraseñas, API keys, tokens estáticos.
-  `.env.example` lleva placeholders y nada más, y `alembic.ini` no lleva `sqlalchemy.url` por eso
+  los `.env.*.example` llevan placeholders y nada más, y `alembic.ini` no lleva `sqlalchemy.url` por eso
   mismo.
 - **Hosts, IPs y topología de red** internos. El campo `pipeline` de un YAML nombra una base, no un
   servidor: a qué host apunta lo resuelve el `.env` del despliegue.
@@ -76,7 +76,7 @@ Sí, y a sabiendas:
 - Los **nombres de las vistas y MV de origen** (`origen`) y los de los pipelines. Son la trazabilidad
   que hace revisable un indicador por alguien del área temática, y son también lo que ata la
   visibilidad de este repositorio a la de ETL-SIEEJ. Si algún día se reconsidera D13, **eso** es lo
-  que hay que revisar — no el `.env.example`.
+  que hay que revisar — no los `.env.*.example`.
 
 ## CI
 

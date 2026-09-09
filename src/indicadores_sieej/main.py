@@ -37,6 +37,14 @@ def create_app() -> FastAPI:
         cfg = settings()
         indicators = load()
         logging.getLogger().setLevel(cfg.log_level)
+        if cfg.entorno == "dev":
+            # Ruidoso a propósito: `sslmode=disable` es tráfico a la base **sin cifrar**,
+            # y un relajamiento silencioso es el que sobrevive hasta producción.
+            log.warning(
+                "IIEGDB_ENTORNO=dev: sslmode=%s (sin cifrar) y base_url=%s. No usar fuera de desarrollo.",
+                cfg.pg_sslmode,
+                cfg.base_url,
+            )
         log.info("catálogo cargado: %d indicadores", len(indicators))
 
         async with mcp_app.router.lifespan_context(mcp_app):

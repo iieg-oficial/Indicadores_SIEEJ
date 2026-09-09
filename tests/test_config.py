@@ -23,6 +23,44 @@ def test_the_defaults_are_the_documented_ones():
     assert cfg.log_level == "INFO"
 
 
+# --- Los dos entornos ---
+
+
+def test_prod_is_the_default_entorno():
+    """Olvidar la variable tiene que dejar el despliegue endurecido, no relajado."""
+    assert _cfg().entorno == "prod"
+
+
+def test_dev_resolves_the_two_defaults_that_block_a_local_startup():
+    """`require` truena si el PostgreSQL interno no tiene TLS, y `base_url` sin valor
+    impide arrancar. Son las dos que en dev se resuelven solas."""
+    cfg = Settings(
+        _env_file=None,
+        entorno="dev",
+        pg_host="h",
+        pg_user="u",
+        pg_password="p",
+        pipelines="*",
+        auth_mode="static",
+        static_tokens="t",
+    )
+    assert cfg.pg_sslmode == "disable"
+    assert str(cfg.base_url) == "http://localhost:8000/"
+
+
+def test_prod_still_demands_its_base_url():
+    """En prod no se inventa: adivinar `localhost` serviría esa URL a quien está del
+    otro lado de la red, y eso falla en el cliente y no aquí."""
+    with pytest.raises(ValidationError, match="IIEGDB_BASE_URL"):
+        _cfg(base_url=None)
+
+
+def test_an_explicit_value_wins_over_the_entorno_default():
+    cfg = _cfg(entorno="dev", pg_sslmode="require", base_url="https://interno.iieg.mx")
+    assert cfg.pg_sslmode == "require"
+    assert str(cfg.base_url) == "https://interno.iieg.mx/"
+
+
 def test_pipelines_accepts_a_list_and_an_asterisk():
     listed = _cfg(pipelines="ilmm, enoe_microdatos ")
     assert listed.enabled_pipelines == ["ilmm", "enoe_microdatos"]
@@ -33,7 +71,7 @@ def test_pipelines_accepts_a_list_and_an_asterisk():
 def test_a_malformed_base_url_blocks_startup():
     """Con `base_url: str` esto arrancaba y reventaba con un 500 en la primera petición
     autenticada, porque quien la valida de verdad es FastMCP al construir el verificador.
-    El placeholder `https://<host>` del .env.example era exactamente ese caso."""
+    El placeholder `https://<host>` del .env.prod.example era exactamente ese caso."""
     with pytest.raises(ValidationError, match="base_url"):
         _cfg(base_url="https://<host>")
 
