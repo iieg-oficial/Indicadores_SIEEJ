@@ -4,8 +4,10 @@ Qué vista de [ETL-SIEEJ](https://github.com/iieg-oficial/ETL-SIEEJ) alimenta a 
 **qué vistas quedaron fuera y por qué**. Se revisaron las **182 vistas vigentes** de los **35 pipelines** que definen alguna,
 leídas de `migrations/<pipeline>/sql/`. De ellas, **57 alimentan 120 indicadores**.
 
-> La fuente de verdad son las migraciones, no los README de pipeline. Este documento se generó
-> a partir de ellas; si una vista cambia allá, hay que regenerarlo.
+> La fuente de verdad son las migraciones, no los README de pipeline. Tanto este documento como
+> los YAML de las vistas listadas abajo se generan desde `scripts/curaduria_vistas.py` con
+> `python scripts/generar_catalogo.py`. Si una vista cambia en ETL-SIEEJ, se ajusta la curaduría
+> y se regenera; no se editan los YAML a mano.
 
 ## Qué entró
 
