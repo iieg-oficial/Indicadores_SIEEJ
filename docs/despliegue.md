@@ -6,13 +6,17 @@ que un despliegue tiene que llenar sí o sí.
 
 ## Qué se levanta
 
-`compose.yaml` trae tres servicios y **una sola base propia**:
+`compose.yaml` trae cuatro servicios y **una sola base propia**:
 
-| Servicio      | Qué es                                                                          |
-| ------------- | ------------------------------------------------------------------------------- |
-| `registro`    | El PostgreSQL del registro de API keys. La única base que este servicio escribe |
-| `migraciones` | Aplica el esquema del registro y termina. Corre antes del servidor, una vez     |
-| `servidor`    | El proceso ASGI: MCP en `/mcp`, REST en `/v1`                                   |
+| Servicio       | Perfil   | Qué es                                                                          |
+| -------------- | -------- | ------------------------------------------------------------------------------- |
+| `registro`     | —        | El PostgreSQL del registro de API keys. La única base que este servicio escribe |
+| `migraciones`  | —        | Aplica el esquema del registro y termina. Corre antes del servidor, una vez     |
+| `servidor`     | **prod** | El proceso ASGI: MCP en `/mcp`, REST en `/v1`. **Es el de un despliegue**       |
+| `servidor-dev` | dev      | El mismo con `src/` y `catalogo/` montados y `--reload`. Nunca en un servidor   |
+
+Los dos primeros van sin perfil, así que corren en ambos. El perfil no se pasa por línea de
+comandos: sale de `COMPOSE_PROFILES`, que viene dentro del `.env` que copies.
 
 Las bases del ETL **viven fuera** y son de solo lectura. Se llega a ellas con `IIEGDB_PG_*`, y un
 pipeline sin ruta de red no impide arrancar: sus indicadores responden `503` y el resto sigue
@@ -31,8 +35,17 @@ sirviendo.
 ## El `.env`
 
 ```bash
-cp .env.example .env
+cp .env.prod.example .env
 ```
+
+**El de prod, no el de dev.** El ejemplo de desarrollo trae `COMPOSE_PROFILES=dev` —que levantaría
+`servidor-dev`, con el código montado desde el disco y `--reload`— e `IIEGDB_ENTORNO=dev`, que
+relaja el `sslmode` a `disable` y le inventa a `base_url` un `localhost` que ningún cliente de la
+red puede usar. Si alguien se equivoca de archivo, el servidor lo grita al arrancar con un
+`WARNING` que nombra las dos cosas relajadas; ese renglón en el log es la señal.
+
+> **Si vienes de un `.env` anterior a los perfiles**, agrégale `COMPOSE_PROFILES=prod`. Sin esa
+> línea, `docker compose up` levanta `registro` y `migraciones` y **ningún servidor**.
 
 Cuatro valores no se pueden dejar como vienen. Los tres primeros **impiden arrancar** si están mal,
 que es la conducta buscada: una configuración incompleta falla al levantar y no al servir la primera

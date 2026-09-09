@@ -110,7 +110,7 @@ por el servidor y no por el rol, el alta no está completa.
 ## Custodia, rotación y revocación
 
 - La contraseña no se versiona nunca — ver [Qué no se versiona](../CONTRIBUTING.md#qué-no-se-versiona).
-  Llega al despliegue por el `.env`, y `.env.example` lleva solo placeholders.
+  Llega al despliegue por el `.env`, y los `.env.*.example` llevan solo placeholders.
 - **Rotarla es una sola edición**, `IIEGDB_PG_PASSWORD`, porque el DSN se arma desde el bloque
   `IIEGDB_PG_*` y no está escrito una vez por base.
 - **Revocar el acceso del servidor sin tocar el ETL** es `ALTER ROLE indicadores_ro NOLOGIN`. Esa

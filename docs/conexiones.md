@@ -32,7 +32,7 @@ Lo que esto compra: **agregar una base al servidor por defecto no agrega una lí
 contraseña es una sola edición y no 100. De paso, la contraseña deja de tener que ir URL-encodeada
 dentro de un DSN.
 
-Los DSN **nunca** se versionan: `.env.example` lleva placeholders.
+Los DSN **nunca** se versionan: los `.env.*.example` llevan placeholders.
 
 ## Un pool por pipeline, creado en la primera consulta
 

@@ -12,10 +12,15 @@ dist/
 venv/
 env/
 
-# Secretos: los DSN y los tokens nunca se versionan
+# Secretos: los DSN y los tokens nunca se versionan.
+# `.env.*` es lo que atrapa a `.env.dev` y `.env.prod`: `*.env` solo cubre lo que
+# **termina** en `.env`, así que sin esta línea un `.env.prod` con las credenciales
+# reales se commitea sin que nada avise.
 .env
 *.env
+.env.*
 !.env.example
+!.env.*.example
 
 # Herramientas
 .pytest_cache/

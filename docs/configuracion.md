@@ -6,6 +6,12 @@ más tarde al servir la primera consulta.
 
 ## Variables
 
+### Entorno
+
+| Variable          | Oblig. | Descripción                                     |
+| ----------------- | :----: | ----------------------------------------------- |
+| `IIEGDB_ENTORNO`  |   No   | `dev` \| `prod`. Por defecto **`prod`**         |
+
 ### Conexiones
 
 | Variable                |   Oblig.    | Descripción                                                             |
@@ -14,7 +20,7 @@ más tarde al servir la primera consulta.
 | `IIEGDB_PG_PORT`        |     No      | Por defecto `5432`                                                      |
 | `IIEGDB_PG_USER`        |     Sí      | Rol de solo lectura                                                     |
 | `IIEGDB_PG_PASSWORD`    |     Sí      | Sin URL-encodear: no viaja dentro de un DSN                             |
-| `IIEGDB_PG_SSLMODE`     |     No      | Por defecto `require`                                                   |
+| `IIEGDB_PG_SSLMODE`     |     No      | Por defecto `require` en `prod` y `disable` en `dev`                    |
 | `IIEGDB_PIPELINES`      |     Sí      | Pipelines habilitados, separados por comas; `*` para todos              |
 | `IIEGDB_DSN_<PIPELINE>` | Condicional | Excepción: la base vive en otro servidor o no se llama como su pipeline |
 
@@ -27,7 +33,7 @@ más tarde al servir la primera consulta.
 | `IIEGDB_JWKS_URI`      | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_ISSUER`        | Condicional | Verificación en modo `jwt`            |
 | `IIEGDB_AUDIENCE`      | Condicional | Verificación en modo `jwt`            |
-| `IIEGDB_BASE_URL`      |     Sí      | URL pública. Se valida como URL       |
+| `IIEGDB_BASE_URL`      | Condicional | URL pública. Se valida como URL. Obligatoria en `prod` |
 | `IIEGDB_REGISTRY_DSN`  | Condicional | Base del registro, en modo `api_key`  |
 
 ### Límites y operación
@@ -44,6 +50,34 @@ más tarde al servir la primera consulta.
 
 > `POOL_SIZE` y `POOL_MAX_OVERFLOW` son por pipeline, así que se multiplican por la cantidad de
 > pipelines en uso. La cuenta que hay que hacer antes de subirlos está en [conexiones.md](conexiones.md#el-presupuesto-de-conexiones).
+
+### Los dos entornos
+
+`IIEGDB_ENTORNO` gobierna **dos defaults y nada más**. No es un interruptor de seguridad: no toca
+autenticación, ni límites, ni pools, ni qué pipelines se sirven.
+
+| Variable            | En `prod`                    | En `dev`                |
+| ------------------- | ---------------------------- | ----------------------- |
+| `IIEGDB_PG_SSLMODE` | `require`                    | `disable`               |
+| `IIEGDB_BASE_URL`   | **Obligatoria**, sin default | `http://localhost:8000` |
+
+Son justo las dos que impiden levantar en local o en la red interna: `require` truena si el
+PostgreSQL de enfrente no tiene TLS —lo normal puertas adentro— y `base_url` sin valor impide el
+arranque. Un valor explícito siempre gana sobre el default del entorno.
+
+**`prod` es el valor por omisión**, y esa dirección es deliberada: olvidar la variable deja el
+despliegue endurecido, no relajado. Es el único sentido en el que un olvido sale barato.
+
+**En `prod` no se inventa `base_url`.** Es la URL que el servidor *anuncia* en el handshake de MCP:
+adivinar `localhost` no daría un arranque bueno, daría uno que le sirve esa URL a quien está del
+otro lado de la red — y eso falla en el cliente, no aquí, que es la peor forma de fallar.
+
+Arrancar en `dev` emite un `WARNING` que nombra lo relajado. `sslmode=disable` es tráfico a la base
+**sin cifrar**, y un relajamiento silencioso es el que sobrevive hasta producción.
+
+> El día que el servicio salga de la red interna —#77, ver [decisiones.md](decisiones.md#dónde-vive-el-servicio-y-por-qué-va-sin-tls-d16)—
+> el endurecimiento que eso exija (TLS, CORS por sub-app, límites reescalados) va en la rama `prod`
+> de esta misma variable. Hoy `prod` es exactamente la conducta de siempre.
 
 ### Los tres modos
 
@@ -106,12 +140,12 @@ de aquí y se resuelven una sola vez por proceso.
 
 ## Secretos
 
-**Los DSN y los tokens nunca se versionan ni se escriben en logs de ningún nivel.** `.env.example`
-lleva únicamente placeholders.
+**Los DSN y los tokens nunca se versionan ni se escriben en logs de ningún nivel.** Los `.env.*.example`
+llevan únicamente placeholders.
 
 > El prefijo `IIEGDB_` viene de la especificación original, redactada cuando el proyecto se llamaba
 > `iieg-databases`. Se conserva para no divergir de ella. Si se decide renombrarlo, hay que hacerlo
-> aquí, en `.env.example` y en el despliegue, en un solo cambio.
+> aquí, en los `.env.*.example` y en el despliegue, en un solo cambio.
 
 ---
 

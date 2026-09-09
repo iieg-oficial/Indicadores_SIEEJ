@@ -21,12 +21,22 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="IIEGDB_", env_file=".env", extra="ignore")
 
+    # --- Entorno ---
+    # Gobierna **solo** los dos defaults que abajo nacen en `None`, y nada más. No es un
+    # interruptor de seguridad: no toca auth, ni límites, ni pools.
+    #
+    # `prod` es el valor por omisión a propósito. Olvidar la variable deja el despliegue
+    # endurecido y no relajado, que es la única dirección en la que un olvido es barato.
+    entorno: Literal["dev", "prod"] = "prod"
+
     # --- Servidor por defecto ---
     pg_host: str
     pg_port: int = 5432
     pg_user: str
     pg_password: SecretStr
-    pg_sslmode: str = "require"
+    # Nace en `None` porque su default depende del entorno: lo resuelve
+    # `_resolve_entorno_defaults`. Nadie debe leerlo antes de esa validación.
+    pg_sslmode: Optional[str] = None
 
     # Se declara como texto y se parte a mano: si fuera list[str], pydantic-settings
     # esperaría un JSON en la variable de entorno, no una lista separada por comas.
@@ -46,7 +56,10 @@ class Settings(BaseSettings):
     # verificador, que es **la primera petición autenticada** y no el arranque. Con `str`
     # una URL mal escrita pasa la validación de aquí y revienta después con un 500, que
     # es justo lo que este módulo existe para impedir.
-    base_url: AnyHttpUrl
+    #
+    # `Optional` solo para que el default pueda depender del entorno: en `prod` sigue
+    # siendo obligatoria y su ausencia impide el arranque igual que antes.
+    base_url: Optional[AnyHttpUrl] = None
 
     # DSN propio y rol propio, **nunca derivado de IIEGDB_PG_***: ese bloque es el rol de
     # solo lectura de las 33 bases del ETL, y derivar de ahí crearía presión para darle
@@ -78,6 +91,29 @@ class Settings(BaseSettings):
     pool_timeout_s: int = 10
 
     log_level: str = "INFO"
+
+    @model_validator(mode="after")
+    def _resolve_entorno_defaults(self) -> "Settings":
+        """Los dos valores cuyo default depende del entorno. Va primero: los demás
+        validadores y todo el resto del paquete los leen ya resueltos.
+
+        En `dev` se resuelven solos porque son justo los dos que impiden levantar en
+        local o en la red interna del IIEG: `sslmode=require` truena si el PostgreSQL
+        de enfrente no tiene TLS —lo normal puertas adentro— y `base_url` sin valor
+        impide el arranque.
+
+        En `prod` no se inventa ninguno. `base_url` sigue siendo obligatoria porque es
+        la URL que el servidor **anuncia** en el handshake de MCP: adivinarla no daría
+        un arranque bueno, daría uno que sirve `localhost` a quien está del otro lado
+        de la red, y eso falla en el cliente y no aquí.
+        """
+        if self.pg_sslmode is None:
+            self.pg_sslmode = "disable" if self.entorno == "dev" else "require"
+        if self.base_url is None:
+            if self.entorno == "prod":
+                raise ValueError("con IIEGDB_ENTORNO=prod falta IIEGDB_BASE_URL")
+            self.base_url = AnyHttpUrl("http://localhost:8000")
+        return self
 
     @model_validator(mode="after")
     def _require_auth_mode_fields(self) -> "Settings":

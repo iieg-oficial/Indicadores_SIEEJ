@@ -128,7 +128,7 @@ un repositorio que se decidió mantener cerrado; esa asimetría es la que decide
 habría que resolver primero el día que se reconsidere.
 
 No pesa en contra nada de lo que suele forzar la decisión al revés: el repositorio **no versiona
-ningún host, IP, DSN ni token real**. `.env.example` lleva solo placeholders y `alembic.ini` no lleva
+ningún host, IP, DSN ni token real**. Los `.env.*.example` llevan solo placeholders y `alembic.ini` no lleva
 `sqlalchemy.url` a propósito, precisamente porque se versiona.
 
 Que sea interno **no relaja el criterio de qué no se versiona**, que está escrito en
@@ -201,6 +201,15 @@ Esto matiza a D2, que al elegir Streamable HTTP daba el TLS por supuesto: lo sig
 que el servicio salga de la red interna, y ese día es #77 — proxy inverso, `--proxy-headers` y
 revisar los límites. Es coherente con D15: mientras la API sea interna, la frontera de seguridad es
 la red.
+
+**Dónde aterriza #77 cuando llegue: `IIEGDB_ENTORNO=prod`.** La variable existe hoy con un alcance
+deliberadamente chico —dos defaults, ver
+[configuracion.md](configuracion.md#los-dos-entornos)— y `prod` no endurece nada todavía porque no
+hay nada que endurecer: la conducta de `prod` es la de siempre. Es una costura, no una decisión
+nueva, y no revierte ni D15 ni D16. Endurecer un servicio contra una apertura que nadie ha
+autorizado sería construir contra un requisito imaginario; lo que sí compra tenerla puesta es que
+el día que la apertura se decida, el trabajo sea llenar una rama y no rearquitecturar la
+configuración.
 
 ## Por qué un proyecto aparte y no una tool dentro del ETL
 
