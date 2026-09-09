@@ -1,0 +1,45 @@
+id: trabajadores_asegurados_hombres
+nombre: Puestos de trabajo afiliados al IMSS, hombres
+tema: empleo
+definicion: >
+  Puestos de trabajo afiliados al IMSS ocupados por hombres en el municipio al corte del mes.
+unidad: puestos de trabajo
+fuente: IMSS - Asegurados en el IMSS (ASG), puestos de trabajo afiliados
+pipeline: asg_imss
+origen: trabajadores_asegurados
+nivel: municipal
+periodicidad: mensual
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "por confirmar contra la base"
+notas: |
+  Mide puestos de trabajo afiliados, no personas: quien tiene dos empleos formales cuenta dos
+  veces. Solo cubre el empleo formal afiliado al IMSS.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(clave_municipio::text, 5, '0')          AS cve_geo,
+      nombre::text                                 AS nombre_geo,
+      to_char(fecha, 'YYYY-MM')                    AS periodo,
+      total_hombres::numeric                       AS valor,
+      NULL::text                                   AS categoria
+  FROM trabajadores_asegurados
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(clave_municipio::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

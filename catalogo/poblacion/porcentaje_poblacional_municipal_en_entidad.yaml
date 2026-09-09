@@ -1,0 +1,45 @@
+id: porcentaje_poblacional_municipal_en_entidad
+nombre: Peso demográfico del municipio en Jalisco
+tema: poblacion
+definicion: >
+  Porcentaje que representa la población del municipio respecto al total de Jalisco.
+unidad: porcentaje
+fuente: CONAPO - Proyecciones de la población de los municipios de México
+pipeline: conapo
+origen: porcentaje_poblacional_municipal_en_entidad
+nivel: municipal
+periodicidad: anual
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "por confirmar contra la base"
+notas: |
+  Son proyecciones demográficas, no conteos censales: los años posteriores al último censo son
+  estimaciones de CONAPO.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(clave_municipio::text, 5, '0')          AS cve_geo,
+      nombre::text                                 AS nombre_geo,
+      to_char(fecha, 'YYYY')                       AS periodo,
+      valor::numeric                               AS valor,
+      NULL::text                                   AS categoria
+  FROM porcentaje_poblacional_municipal_en_entidad
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(clave_municipio::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

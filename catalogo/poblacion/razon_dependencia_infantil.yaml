@@ -1,0 +1,45 @@
+id: razon_dependencia_infantil
+nombre: Razón de dependencia infantil
+tema: poblacion
+definicion: >
+  Población menor de 15 años por cada 100 personas de 15 a 64 años.
+unidad: dependientes por cada 100 personas en edad activa
+fuente: CONAPO - Proyecciones de la población de los municipios de México
+pipeline: conapo
+origen: razon_dependencia_infantil
+nivel: municipal
+periodicidad: anual
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "por confirmar contra la base"
+notas: |
+  Son proyecciones demográficas, no conteos censales: los años posteriores al último censo son
+  estimaciones de CONAPO.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(clave_municipio::text, 5, '0')          AS cve_geo,
+      nombre::text                                 AS nombre_geo,
+      to_char(fecha, 'YYYY')                       AS periodo,
+      valor::numeric                               AS valor,
+      NULL::text                                   AS categoria
+  FROM razon_dependencia_infantil
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(clave_municipio::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

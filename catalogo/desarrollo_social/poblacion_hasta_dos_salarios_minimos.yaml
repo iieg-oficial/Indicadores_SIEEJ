@@ -1,0 +1,45 @@
+id: poblacion_hasta_dos_salarios_minimos
+nombre: Población ocupada con ingreso de hasta dos salarios mínimos
+tema: desarrollo_social
+definicion: >
+  Porcentaje de la población ocupada con ingreso de hasta dos salarios mínimos.
+unidad: porcentaje
+fuente: CONAPO - Índice de marginación por municipio
+pipeline: marginacion
+origen: vm_marginacion_geo
+nivel: municipal
+periodicidad: quinquenal
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "por confirmar contra la base"
+notas: |
+  El grado de marginación es una categoría de texto y por eso no llega al banco; aquí van solo
+  los indicadores que lo componen.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(cvegeo::text, 5, '0')                   AS cve_geo,
+      municipio::text                              AS nombre_geo,
+      to_char(fecha, 'YYYY')                       AS periodo,
+      porcentaje_poblacion_ingresos_hasta_2_salarios_minimos::numeric AS valor,
+      NULL::text                                   AS categoria
+  FROM vm_marginacion_geo
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(cvegeo::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

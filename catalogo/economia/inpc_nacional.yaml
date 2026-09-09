@@ -1,0 +1,39 @@
+id: inpc_nacional
+nombre: Índice Nacional de Precios al Consumidor
+tema: economia
+definicion: >
+  Índice nacional de precios al consumidor por objeto del gasto.
+unidad: índice
+fuente: INEGI - Índice Nacional de Precios al Consumidor (INPC)
+pipeline: inpc
+origen: v_inpc_nacional
+nivel: nacional
+periodicidad: mensual
+cobertura:
+  geografica: Nacional
+  temporal: "por confirmar contra la base"
+notas: |
+  La columna categoria trae el objeto del gasto; el índice general viene en su propia
+  categoria.
+parametros:
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      '00'                                         AS cve_geo,
+      'Nacional'::text                             AS nombre_geo,
+      to_char(fecha, 'YYYY-MM')                    AS periodo,
+      indice_de_precios::numeric                   AS valor,
+      objeto_gasto::text                           AS categoria
+  FROM v_inpc_nacional
+  WHERE (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo
