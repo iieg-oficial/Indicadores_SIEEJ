@@ -1,0 +1,46 @@
+id: pobreza_personas
+nombre: Población en situación de pobreza, personas
+tema: pobreza
+definicion: >
+  Personas con al menos una carencia social y un ingreso inferior a la línea de pobreza por
+  ingresos. Expresado en número de personas.
+unidad: personas
+fuente: CONEVAL - Medición de la pobreza multidimensional municipal
+pipeline: pobreza_multidimensional
+origen: pobreza
+nivel: municipal
+periodicidad: quinquenal
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "2010, 2015, 2020"
+notas: |
+  Los tres cortes usan metodologías distintas del CONEVAL: la serie no es estrictamente
+  comparable año contra año.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(clave_municipio::text, 5, '0')          AS cve_geo,
+      nombre::text                                 AS nombre_geo,
+      to_char(fecha, 'YYYY')                       AS periodo,
+      personas::numeric                            AS valor,
+      NULL::text                                   AS categoria
+  FROM pobreza
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(clave_municipio::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

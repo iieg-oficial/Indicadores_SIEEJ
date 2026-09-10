@@ -1,0 +1,45 @@
+id: robo_autopartes_tasa
+nombre: Robo de autopartes, tasa por 100 mil habitantes
+tema: seguridad
+definicion: >
+  Carpetas de investigación por robo de autopartes por cada 100 mil habitantes del municipio.
+unidad: carpetas por cada 100 mil habitantes
+fuente: SESNSP - Incidencia delictiva del fuero común, nueva metodología
+pipeline: delitos_fuero_comun
+origen: vwm_datos_delitos_robo_autopartes_secretariado
+nivel: municipal
+periodicidad: mensual
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "2015 a la fecha"
+notas: |
+  Carpetas de investigación abiertas, no victimas ni delitos. La tasa usa como denominador la
+  proyección de población de CONAPO del año correspondiente.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(clave_municipio::text, 5, '0')          AS cve_geo,
+      nombre::text                                 AS nombre_geo,
+      to_char(fecha, 'YYYY-MM')                    AS periodo,
+      tasa_carpetas_investigacion::numeric         AS valor,
+      NULL::text                                   AS categoria
+  FROM vwm_datos_delitos_robo_autopartes_secretariado
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(clave_municipio::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

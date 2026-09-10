@@ -1,0 +1,44 @@
+id: superficie_sembrada
+nombre: Superficie sembrada
+tema: economia
+definicion: >
+  Superficie total sembrada en el municipio en el año.
+unidad: hectáreas
+fuente: SIAP - Cierre de la producción agrícola municipal
+pipeline: agropecuario_siap
+origen: vm_agricola_geo
+nivel: municipal
+periodicidad: anual
+cobertura:
+  geografica: Municipios de Jalisco
+  temporal: "por confirmar contra la base"
+notas: |
+  Agrega todos los cultivos, ciclos y modalidades del municipio en el año.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 5 dígitos del municipio (ej. 14039). Omitir para todos los municipios.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(cvegeo::text, 5, '0')                   AS cve_geo,
+      municipio::text                              AS nombre_geo,
+      to_char(fecha, 'YYYY')                       AS periodo,
+      superficie_sembrada_total_ha::numeric        AS valor,
+      NULL::text                                   AS categoria
+  FROM vm_agricola_geo
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(cvegeo::text, 5, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo

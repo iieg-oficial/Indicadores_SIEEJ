@@ -1,0 +1,45 @@
+id: inpc_estatal
+nombre: INPC por entidad federativa
+tema: economia
+definicion: >
+  Índice de precios al consumidor por entidad federativa y objeto del gasto.
+unidad: índice
+fuente: INEGI - Índice Nacional de Precios al Consumidor (INPC)
+pipeline: inpc
+origen: v_inpc_entidades
+nivel: estatal
+periodicidad: mensual
+cobertura:
+  geografica: Entidades federativas
+  temporal: "por confirmar contra la base"
+notas: |
+  La columna categoria trae el objeto del gasto; el índice general viene en su propia
+  categoria.
+parametros:
+  - nombre: cve_geo
+    tipo: str
+    requerido: false
+    descripcion: Clave INEGI de 2 dígitos de la entidad (ej. 14 para Jalisco). Omitir para todas.
+  - nombre: anio_min
+    tipo: int
+    requerido: false
+    descripcion: Primer año de la serie, inclusive. Omitir para empezar en el primero disponible.
+  - nombre: anio_max
+    tipo: int
+    requerido: false
+    descripcion: Último año de la serie, inclusive. Omitir para llegar al último disponible.
+sql: |
+  SELECT
+      LPAD(cve_ent::text, 2, '0')                  AS cve_geo,
+      entidad::text                                AS nombre_geo,
+      to_char(fecha, 'YYYY-MM')                    AS periodo,
+      indice_de_precios::numeric                   AS valor,
+      objeto_gasto::text                           AS categoria
+  FROM v_inpc_entidades
+  WHERE (CAST(:cve_geo AS text) IS NULL
+         OR LPAD(cve_ent::text, 2, '0') = CAST(:cve_geo AS text))
+    AND (CAST(:anio_min AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) >= CAST(:anio_min AS integer))
+    AND (CAST(:anio_max AS integer) IS NULL
+         OR EXTRACT(YEAR FROM fecha) <= CAST(:anio_max AS integer))
+  ORDER BY cve_geo, periodo
